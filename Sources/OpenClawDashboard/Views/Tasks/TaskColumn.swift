@@ -1,0 +1,89 @@
+import SwiftUI
+
+struct TaskColumn: View {
+    let status: TaskStatus
+    let tasks: [TaskItem]
+    let onDrop: ([TaskItem]) -> Bool
+    let onEdit: (TaskItem) -> Void
+    let onDelete: (UUID) -> Void
+
+    @State private var isTargeted = false
+
+    var body: some View {
+        VStack(spacing: 0) {
+            // Column header
+            HStack {
+                Image(systemName: status.icon)
+                    .foregroundColor(status.color)
+                    .font(.subheadline)
+                Text(status.columnTitle)
+                    .font(.headline)
+                    .fontWeight(.bold)
+                    .foregroundColor(.white)
+                Spacer()
+                Text("\(tasks.count)")
+                    .font(.caption)
+                    .fontWeight(.semibold)
+                    .foregroundColor(Theme.textMuted)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 2)
+                    .background(Theme.darkAccent)
+                    .cornerRadius(10)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+
+            Divider()
+                .background(status.color.opacity(0.3))
+
+            // Cards area
+            ScrollView {
+                LazyVStack(spacing: 10) {
+                    ForEach(tasks) { task in
+                        TaskCard(task: task)
+                            .draggable(task)
+                            .contextMenu {
+                                Button("Edit") { onEdit(task) }
+                                Divider()
+                                ForEach(TaskStatus.allCases, id: \.self) { targetStatus in
+                                    if targetStatus != status {
+                                        Button("Move to \(targetStatus.columnTitle)") {
+                                            _ = onDrop([var_task(task, status: targetStatus)])
+                                        }
+                                    }
+                                }
+                                Divider()
+                                Button("Delete", role: .destructive) { onDelete(task.id) }
+                            }
+                    }
+                }
+                .padding(10)
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(Theme.darkSurface.opacity(0.5))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(
+                            isTargeted ? status.color.opacity(0.6) : Theme.darkBorder.opacity(0.3),
+                            lineWidth: isTargeted ? 2 : 1
+                        )
+                )
+        )
+        .dropDestination(for: TaskItem.self) { items, _ in
+            onDrop(items)
+        } isTargeted: { targeted in
+            withAnimation(.easeOut(duration: 0.2)) {
+                isTargeted = targeted
+            }
+        }
+    }
+
+    private func var_task(_ task: TaskItem, status: TaskStatus) -> TaskItem {
+        var t = task
+        t.status = status
+        return t
+    }
+}
