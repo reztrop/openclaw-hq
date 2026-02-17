@@ -33,12 +33,14 @@ struct OpenClawDashboardApp: App {
                 Divider()
                 Button("Agents") { appViewModel.selectedTab = .agents }
                     .keyboardShortcut("1", modifiers: .command)
-                Button("Tasks") { appViewModel.selectedTab = .tasks }
+                Button("Chat") { appViewModel.selectedTab = .chat }
                     .keyboardShortcut("2", modifiers: .command)
-                Button("Usage") { appViewModel.selectedTab = .usage }
+                Button("Tasks") { appViewModel.selectedTab = .tasks }
                     .keyboardShortcut("3", modifiers: .command)
-                Button("Activity") { appViewModel.selectedTab = .activity }
+                Button("Usage") { appViewModel.selectedTab = .usage }
                     .keyboardShortcut("4", modifiers: .command)
+                Button("Activity") { appViewModel.selectedTab = .activity }
+                    .keyboardShortcut("5", modifiers: .command)
             }
 
             // File menu — new task
@@ -57,6 +59,9 @@ struct OpenClawDashboardApp: App {
                         switch appViewModel.selectedTab {
                         case .agents:
                             await appViewModel.agentsViewModel.refreshAgents()
+                        case .chat:
+                            await appViewModel.agentsViewModel.refreshAgents()
+                            await appViewModel.chatViewModel.refresh(agentIds: appViewModel.agentsViewModel.agents.map { $0.id })
                         case .usage:
                             await appViewModel.usageViewModel.fetchUsageData()
                         case .activity, .tasks:

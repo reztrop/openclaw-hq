@@ -3,6 +3,7 @@ import Combine
 
 enum AppTab: String, CaseIterable {
     case agents = "Agents"
+    case chat = "Chat"
     case tasks = "Tasks"
     case usage = "Usage"
     case activity = "Activity"
@@ -10,6 +11,7 @@ enum AppTab: String, CaseIterable {
     var icon: String {
         switch self {
         case .agents: return "cpu"
+        case .chat: return "bubble.left.and.bubble.right"
         case .tasks: return "checklist"
         case .usage: return "chart.bar"
         case .activity: return "list.bullet.rectangle"
@@ -28,6 +30,7 @@ class AppViewModel: ObservableObject {
     let gatewayService = GatewayService()
     let taskService = TaskService()
     lazy var agentsViewModel = AgentsViewModel(gatewayService: gatewayService)
+    lazy var chatViewModel = ChatViewModel(gatewayService: gatewayService)
     lazy var tasksViewModel = TasksViewModel(taskService: taskService)
     lazy var usageViewModel = UsageViewModel(gatewayService: gatewayService)
     lazy var gatewayStatusViewModel = GatewayStatusViewModel(gatewayService: gatewayService)

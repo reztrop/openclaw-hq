@@ -143,6 +143,10 @@ struct ContentView: View {
             AgentManagementView()
                 .environmentObject(appViewModel.agentsViewModel)
                 .environmentObject(appViewModel.gatewayService)
+        case .chat:
+            ChatView(chatViewModel: appViewModel.chatViewModel)
+                .environmentObject(appViewModel)
+                .environmentObject(appViewModel.agentsViewModel)
         case .tasks:
             TasksView()
         case .usage:

@@ -383,6 +383,91 @@ class GatewayService: ObservableObject {
         try await sendRPCWithTimeout("agent.wait", params: ["agentId": agentId, "message": message], timeout: 120)?.dictionary
     }
 
+    struct AgentMessageResponse {
+        let text: String
+        let sessionKey: String?
+    }
+
+    func sendAgentMessage(agentId: String, message: String, sessionKey: String?, thinkingEnabled: Bool) async throws -> AgentMessageResponse {
+        var params: [String: Any] = [
+            "agentId": agentId,
+            "message": message,
+            "thinking": thinkingEnabled ? "low" : "off"
+        ]
+        if let sessionKey, !sessionKey.isEmpty {
+            params["sessionKey"] = sessionKey
+        }
+
+        let methods = ["agent.wait", "agent"]
+        var lastError: Error?
+
+        for method in methods {
+            do {
+                let result = try await sendRPCWithTimeout(method, params: params, timeout: 180)?.dictionary ?? [:]
+                let text = (result["response"] as? String)
+                    ?? (result["text"] as? String)
+                    ?? (result["output"] as? String)
+                    ?? ""
+                let key = (result["sessionKey"] as? String)
+                    ?? (result["key"] as? String)
+                    ?? sessionKey
+
+                return AgentMessageResponse(text: text, sessionKey: key)
+            } catch {
+                lastError = error
+            }
+        }
+
+        throw lastError ?? GatewayError(code: -4, message: "No supported chat RPC method succeeded")
+    }
+
+    func fetchSessionHistory(sessionKey: String, limit: Int = 200) async throws -> [ChatMessage] {
+        let methods = ["sessions.history", "sessions_history"]
+        var rows: [[String: Any]] = []
+        var lastError: Error?
+
+        for method in methods {
+            do {
+                let result = try await sendRPC(method, params: ["sessionKey": sessionKey, "limit": limit])?.dictionary ?? [:]
+                rows = (result["messages"] as? [[String: Any]]) ?? []
+                if !rows.isEmpty || method == methods.last {
+                    break
+                }
+            } catch {
+                lastError = error
+            }
+        }
+
+        if rows.isEmpty, let lastError {
+            throw lastError
+        }
+
+        return rows.compactMap { row -> ChatMessage? in
+            let role = (row["role"] as? String) ?? "assistant"
+
+            let text: String = {
+                if let s = row["text"] as? String { return s }
+                if let s = row["content"] as? String { return s }
+                if let parts = row["content"] as? [[String: Any]] {
+                    return parts.compactMap { $0["text"] as? String }.joined(separator: "\n")
+                }
+                return ""
+            }()
+
+            let id = (row["id"] as? String) ?? UUID().uuidString
+
+            var created = Date()
+            if let ms = row["createdAt"] as? Double {
+                created = Date(timeIntervalSince1970: ms > 9_999_999_999 ? ms / 1000 : ms)
+            } else if let ms = row["createdAt"] as? Int {
+                let d = Double(ms)
+                created = Date(timeIntervalSince1970: d > 9_999_999_999 ? d / 1000 : d)
+            }
+
+            return ChatMessage(id: id, role: role, text: text, createdAt: created)
+        }
+    }
+
     // MARK: - Agent Management RPCs
 
     /// Create a new agent on the gateway
