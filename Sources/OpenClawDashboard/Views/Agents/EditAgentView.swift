@@ -141,7 +141,7 @@ struct EditAgentView: View {
             }
         }
         .background(Theme.darkBackground)
-        .frame(minWidth: 600, minHeight: 620)
+        .frame(minWidth: 820, minHeight: 780)
         .preferredColorScheme(.dark)
     }
 
@@ -182,11 +182,13 @@ struct EditAgentView: View {
                 ZStack {
                     if let p = path.wrappedValue, let img = NSImage(contentsOfFile: p) {
                         Image(nsImage: img).resizable().interpolation(.high).antialiased(true).aspectRatio(contentMode: .fill)
-                            .frame(width: 64, height: 64).clipShape(RoundedRectangle(cornerRadius: 8))
+                            .frame(width: 78, height: 78)
+                            .clipShape(RoundedRectangle(cornerRadius: 10))
+                            .drawingGroup(opaque: false, colorMode: .linear)
                     } else {
                         RoundedRectangle(cornerRadius: 8)
                             .fill(color.opacity(0.1))
-                            .frame(width: 64, height: 64)
+                            .frame(width: 78, height: 78)
                             .overlay(Image(systemName: "plus").foregroundColor(color))
                     }
                 }

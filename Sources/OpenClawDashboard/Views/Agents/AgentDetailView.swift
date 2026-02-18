@@ -60,7 +60,7 @@ struct AgentDetailView: View {
                 AgentCommandView(agent: agent, gatewayService: gatewayService)
             }
         }
-        .frame(width: 560, height: 700)
+        .frame(width: 680, height: 780)
         .background(Theme.darkBackground)
     }
 

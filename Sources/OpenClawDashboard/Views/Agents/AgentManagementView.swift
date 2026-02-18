@@ -9,6 +9,13 @@ struct AgentManagementView: View {
     @State private var agentToEdit: Agent?
     @State private var agentToDelete: Agent?
     @State private var showDeleteConfirm = false
+    @State private var isCheckingForUpdates = false
+    @State private var isInstallingUpdate = false
+    @State private var availableUpdate: AppUpdateService.ReleaseInfo?
+    @State private var showUpdateAvailableAlert = false
+    @State private var showStatusAlert = false
+    @State private var statusAlertTitle = ""
+    @State private var statusAlertMessage = ""
 
     private let columns = [
         GridItem(.adaptive(minimum: 280, maximum: 350), spacing: 20)
@@ -77,16 +84,6 @@ struct AgentManagementView: View {
         }
         .toolbar {
             ToolbarItemGroup(placement: .automatic) {
-                // Scan button
-                Button {
-                    addMode = .scan
-                    showAddSheet = true
-                } label: {
-                    Label("Scan for Missing", systemImage: "arrow.clockwise.circle")
-                }
-                .disabled(!gatewayService.isConnected)
-                .help("Scan gateway for agents not shown in dashboard")
-
                 // Add button
                 Button {
                     addMode = .create
@@ -97,6 +94,60 @@ struct AgentManagementView: View {
                 .labelStyle(.titleAndIcon)
                 .disabled(!gatewayService.isConnected)
                 .help("Create a new agent")
+
+                Button {
+                    Task { await checkForUpdates() }
+                } label: {
+                    if isCheckingForUpdates || isInstallingUpdate {
+                        Label("Checking...", systemImage: "arrow.triangle.2.circlepath")
+                    } else {
+                        Label("Check for Updates", systemImage: "arrow.down.circle")
+                    }
+                }
+                .disabled(isCheckingForUpdates || isInstallingUpdate)
+                .help("Check GitHub for newer OpenClaw HQ releases")
+            }
+        }
+        .alert("Update Available", isPresented: $showUpdateAvailableAlert) {
+            Button("Skip", role: .cancel) {}
+            Button("Update") {
+                guard let release = availableUpdate else { return }
+                Task { await installUpdate(release) }
+            }
+        } message: {
+            if let release = availableUpdate {
+                Text("Version \(release.version) is available. Do you want to update OpenClaw HQ now?")
+            } else {
+                Text("A new version is available.")
+            }
+        }
+        .alert(statusAlertTitle, isPresented: $showStatusAlert) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(statusAlertMessage)
+        }
+        .overlay {
+            if isInstallingUpdate {
+                ZStack {
+                    Color.black.opacity(0.35).ignoresSafeArea()
+                    VStack(spacing: 12) {
+                        ProgressView()
+                            .scaleEffect(1.1)
+                        Text("Installing update...")
+                            .foregroundColor(.white)
+                            .font(.headline)
+                        Text("OpenClaw HQ will relaunch when complete.")
+                            .foregroundColor(Theme.textMuted)
+                            .font(.caption)
+                    }
+                    .padding(24)
+                    .background(Theme.darkSurface)
+                    .clipShape(RoundedRectangle(cornerRadius: 14))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 14)
+                            .stroke(Theme.darkBorder.opacity(0.5), lineWidth: 1)
+                    )
+                }
             }
         }
     }
@@ -140,5 +191,42 @@ struct AgentManagementView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .padding(48)
+    }
+
+    private func checkForUpdates() async {
+        isCheckingForUpdates = true
+        defer { isCheckingForUpdates = false }
+
+        do {
+            let currentVersion = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0.0.0"
+            let result = try await AppUpdateService.shared.checkForUpdates(currentVersion: currentVersion)
+
+            switch result {
+            case .updateAvailable(let release):
+                availableUpdate = release
+                showUpdateAvailableAlert = true
+            case .upToDate(let current, let latest):
+                statusAlertTitle = "Up to Date"
+                statusAlertMessage = "Installed version \(current) already matches the latest GitHub release (\(latest))."
+                showStatusAlert = true
+            }
+        } catch {
+            statusAlertTitle = "Update Check Failed"
+            statusAlertMessage = error.localizedDescription
+            showStatusAlert = true
+        }
+    }
+
+    private func installUpdate(_ release: AppUpdateService.ReleaseInfo) async {
+        isInstallingUpdate = true
+        defer { isInstallingUpdate = false }
+
+        do {
+            try await AppUpdateService.shared.installUpdate(release)
+        } catch {
+            statusAlertTitle = "Update Failed"
+            statusAlertMessage = error.localizedDescription
+            showStatusAlert = true
+        }
     }
 }

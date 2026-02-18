@@ -62,6 +62,7 @@ struct AgentCard: View {
         }
         .padding(16)
         .frame(maxWidth: .infinity)
+        .contentShape(RoundedRectangle(cornerRadius: 16))
         .background(
             RoundedRectangle(cornerRadius: 16)
                 .fill(Theme.darkSurface)
@@ -77,8 +78,7 @@ struct AgentCard: View {
             color: isHovered ? agent.brandColor.opacity(0.15) : .clear,
             radius: 16
         )
-        .scaleEffect(isHovered ? 1.02 : 1.0)
-        .animation(.easeOut(duration: 0.2), value: isHovered)
+        .animation(.easeOut(duration: 0.15), value: isHovered)
         .onHover { hovering in
             isHovered = hovering
         }
@@ -88,10 +88,11 @@ struct AgentCard: View {
                     Image(systemName: "pencil.circle.fill")
                         .font(.title2)
                         .foregroundColor(Theme.jarvisBlue)
-                        .padding(10)
+                        .frame(width: 34, height: 34)
                 }
                 .buttonStyle(.plain)
-                .opacity(isHovered ? 1 : 0)
+                .padding(8)
+                .opacity(isHovered ? 0.95 : 0)
                 .animation(.easeOut(duration: 0.15), value: isHovered)
             }
         }

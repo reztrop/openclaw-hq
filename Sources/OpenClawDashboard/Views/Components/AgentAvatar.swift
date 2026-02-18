@@ -49,6 +49,7 @@ struct AgentAvatar: View {
                 .interpolation(.high)
                 .antialiased(true)
                 .aspectRatio(contentMode: .fill)
+                .drawingGroup(opaque: false, colorMode: .linear)
         } else {
             // Gradient fallback when no image file is present
             GradientAvatarView(agentName: agentName, isActive: active, size: size)
@@ -70,6 +71,7 @@ struct AgentAvatarSmall: View {
                 .aspectRatio(contentMode: .fill)
                 .frame(width: size, height: size)
                 .clipShape(Circle())
+                .drawingGroup(opaque: false, colorMode: .linear)
                 .overlay(
                     Circle()
                         .stroke(Theme.agentColor(for: agentName).opacity(0.5), lineWidth: 1)
