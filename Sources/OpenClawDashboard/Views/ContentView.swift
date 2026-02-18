@@ -41,7 +41,10 @@ struct ContentView: View {
             sidebarHeader
         }
         .safeAreaInset(edge: .bottom) {
-            connectionStatus
+            VStack(spacing: 0) {
+                ProviderSettingsView()
+                connectionStatus
+            }
         }
     }
 

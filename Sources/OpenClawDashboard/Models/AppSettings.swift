@@ -17,6 +17,9 @@ struct AppSettings: Codable {
     var showOfflineAgents: Bool
     var onboardingComplete: Bool
     var localAgents: [LocalAgentConfig]
+    /// Provider IDs (matching auth.json keys) the user has enabled.
+    /// nil = not yet set (treat as "all available providers enabled").
+    var enabledProviders: [String]?
 
     var gatewayURL: String {
         "ws://\(gatewayHost):\(gatewayPort)"
@@ -30,7 +33,8 @@ struct AppSettings: Codable {
         refreshInterval: 30,
         showOfflineAgents: true,
         onboardingComplete: false,
-        localAgents: []
+        localAgents: [],
+        enabledProviders: nil
     )
 
     static let filePath: String = {

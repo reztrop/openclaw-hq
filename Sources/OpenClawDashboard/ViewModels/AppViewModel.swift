@@ -29,7 +29,7 @@ class AppViewModel: ObservableObject {
     let settingsService = SettingsService()
     let gatewayService = GatewayService()
     let taskService = TaskService()
-    lazy var agentsViewModel = AgentsViewModel(gatewayService: gatewayService)
+    lazy var agentsViewModel = AgentsViewModel(gatewayService: gatewayService, settingsService: settingsService)
     lazy var chatViewModel = ChatViewModel(gatewayService: gatewayService)
     lazy var tasksViewModel = TasksViewModel(taskService: taskService)
     lazy var usageViewModel = UsageViewModel(gatewayService: gatewayService)

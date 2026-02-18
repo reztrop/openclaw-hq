@@ -11,13 +11,16 @@ class AgentsViewModel: ObservableObject {
     @Published var isLoadingModels = false
 
     let gatewayService: GatewayService
+    let settingsService: SettingsService
     private var cancellables = Set<AnyCancellable>()
     private var autoRefreshTask: Task<Void, Never>?
 
-    init(gatewayService: GatewayService) {
+    init(gatewayService: GatewayService, settingsService: SettingsService) {
         self.gatewayService = gatewayService
+        self.settingsService = settingsService
         subscribeToEvents()
         subscribeToConnectionState()
+        subscribeToProviderSettings()
         startAutoRefresh()
     }
 
@@ -130,18 +133,24 @@ class AgentsViewModel: ObservableObject {
     // MARK: - Models
 
     func loadModels() async {
-        // Don't reload if we already have a filtered list for this session.
-        // availableModels is reset to [] whenever the connection drops/reconnects,
-        // ensuring we always reload with the current auth.json on each new connection.
         guard availableModels.isEmpty else { return }
         isLoadingModels = true
         defer { isLoadingModels = false }
+        await applyModelFilter()
+    }
 
-        // Read auth.json to determine which providers the user has authenticated.
-        // Keys in auth.json are provider IDs (e.g. "openai-codex", "anthropic").
-        // models.list returns ALL 724 static catalog models regardless of auth, so we
-        // must cross-reference locally — the gateway has no "available only" RPC.
-        let authenticatedProviders = loadAuthenticatedProviders()
+    /// Rebuilds `availableModels` from the gateway catalog filtered by the
+    /// user's enabled-providers setting. Called on load and whenever the
+    /// settings change so the picker always reflects current selections.
+    private func applyModelFilter() async {
+        // Determine which providers to show.
+        // enabledProviders == nil means "never configured" — fall back to auth.json keys.
+        let enabledSet: Set<String>
+        if let list = settingsService.settings.enabledProviders, !list.isEmpty {
+            enabledSet = Set(list)
+        } else {
+            enabledSet = loadAuthenticatedProviders()
+        }
 
         do {
             let raw = try await gatewayService.fetchModels()
@@ -157,25 +166,18 @@ class AgentsViewModel: ObservableObject {
                 )
             }
 
-            // Filter to only models whose provider is in the authenticated set.
-            // If auth.json cannot be read (empty set), fall back to showing all models.
-            let filtered: [ModelInfo]
-            if authenticatedProviders.isEmpty {
-                filtered = allModels
-            } else {
-                filtered = allModels.filter { authenticatedProviders.contains($0.provider) }
-            }
-
-            // Additionally strip the synthetic "spark" fallback model that the gateway
-            // always appends regardless of auth state.
+            // Filter by user-selected providers, then strip the synthetic spark entry.
+            let filtered = enabledSet.isEmpty
+                ? allModels
+                : allModels.filter { enabledSet.contains($0.provider) }
             availableModels = filtered.filter { !$0.id.lowercased().contains("spark") }
         } catch {
             print("[AgentsVM] Failed to load models: \(error)")
         }
     }
 
-    /// Reads ~/.openclaw/agents/main/agent/auth.json and returns the set of
-    /// authenticated provider IDs (the top-level keys of that JSON object).
+    /// Fallback: reads ~/.openclaw/agents/main/agent/auth.json and returns the
+    /// set of authenticated provider IDs (the top-level keys).
     private func loadAuthenticatedProviders() -> Set<String> {
         let home = FileManager.default.homeDirectoryForCurrentUser.path
         let authPath = "\(home)/.openclaw/agents/main/agent/auth.json"
@@ -286,6 +288,22 @@ class AgentsViewModel: ObservableObject {
                 if case .disconnected = state {
                     self?.availableModels = []
                 }
+            }
+            .store(in: &cancellables)
+    }
+
+    /// Re-filter the model list immediately whenever the user toggles a provider
+    /// in the sidebar settings panel.
+    private func subscribeToProviderSettings() {
+        settingsService.$settings
+            .map(\.enabledProviders)
+            .removeDuplicates { $0 == $1 }
+            .dropFirst()   // skip initial value; loadModels() handles first load
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                guard let self, self.gatewayService.isConnected else { return }
+                self.availableModels = []   // clear so applyModelFilter re-runs
+                Task { await self.applyModelFilter() }
             }
             .store(in: &cancellables)
     }
