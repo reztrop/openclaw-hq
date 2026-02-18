@@ -102,7 +102,6 @@ struct EditAgentView: View {
 
                     // Model picker
                     VStack(alignment: .leading, spacing: 4) {
-                        Text("Model").font(.caption).foregroundColor(Theme.textMuted)
                         ModelPickerView(agentId: agent.id, selectedModelId: $selectedModelId)
                             .environmentObject(agentsVM)
                             .environmentObject(gatewayService)
