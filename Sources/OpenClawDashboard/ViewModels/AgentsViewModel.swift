@@ -56,15 +56,15 @@ class AgentsViewModel: ObservableObject {
                 let ident = raw["identity"] as? [String: Any]
                 let gatewayName = (ident?["name"]  as? String) ?? (raw["name"]  as? String) ?? id
                 let gatewayEmoji = (ident?["emoji"] as? String) ?? "🤖"
+                let gatewayModelId = (ident?["model"] as? String) ?? (raw["model"] as? String)
                 let localConfig = settingsService.settings.localAgents.first(where: { $0.id == id })
                 let localName = localConfig?.displayName?.trimmingCharacters(in: .whitespacesAndNewlines)
                 let rawName = (localName?.isEmpty == false ? (localName ?? gatewayName) : gatewayName)
                 let localEmoji = localConfig?.emoji
                 let emoji = (localEmoji?.isEmpty == false ? (localEmoji ?? gatewayEmoji) : gatewayEmoji)
+                let modelId = (localConfig?.modelId?.isEmpty == false ? localConfig?.modelId : gatewayModelId)
 
                 // Preserve existing agent's runtime state if already known
-                let modelId = (ident?["model"] as? String) ?? (raw["model"] as? String)
-
                 if let existing = agents.first(where: { $0.id == id }) {
                     var updated = existing
                     updated.name           = rawName.isEmpty ? id : rawName
@@ -208,6 +208,9 @@ class AgentsViewModel: ObservableObject {
         // Set model if provided
         if let model = model, !model.isEmpty {
             _ = try? await gatewayService.updateAgent(agentId: agentId, model: model)
+            saveLocalAgentOverride(agentId: agentId) { config in
+                config.modelId = model
+            }
         }
 
         // Set identity/system prompt if provided
@@ -234,6 +237,12 @@ class AgentsViewModel: ObservableObject {
         if let emoji = emoji {
             saveLocalAgentOverride(agentId: agentId) { config in
                 config.emoji = emoji
+            }
+        }
+
+        if let model = model, !model.isEmpty {
+            saveLocalAgentOverride(agentId: agentId) { config in
+                config.modelId = model
             }
         }
 

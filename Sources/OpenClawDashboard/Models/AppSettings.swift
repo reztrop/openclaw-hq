@@ -5,6 +5,7 @@ struct LocalAgentConfig: Codable, Identifiable {
     var id: String           // agentId
     var displayName: String? = nil
     var emoji: String? = nil
+    var modelId: String? = nil
     var activeAvatarPath: String? = nil
     var idleAvatarPath: String? = nil
 }

@@ -59,7 +59,9 @@ struct ModelPickerView: View {
                     set: { newId in
                         guard newId != selectedModelId else { return }
                         selectedModelId = newId
-                        Task { await saveModel(newId) }
+                        if !agentId.isEmpty {
+                            Task { await saveModel(newId) }
+                        }
                     }
                 )) {
                     Text("No model selected").tag("")
@@ -91,21 +93,14 @@ struct ModelPickerView: View {
     }
 
     private func saveModel(_ modelId: String) async {
-        guard !modelId.isEmpty else { return }
+        guard !agentId.isEmpty, !modelId.isEmpty else { return }
         isSaving = true
         saveError = nil
         defer { isSaving = false }
 
         do {
-            _ = try await gatewayService.updateAgent(agentId: agentId, model: modelId)
-            withAnimation {
-                savedConfirmation = true
-            }
-            // Update local agent state
-            if let idx = agentsVM.agents.firstIndex(where: { $0.id == agentId }) {
-                agentsVM.agents[idx].model = modelId
-                agentsVM.agents[idx].modelName = agentsVM.availableModels.first(where: { $0.id == modelId })?.name
-            }
+            try await agentsVM.updateAgent(agentId: agentId, model: modelId)
+            withAnimation { savedConfirmation = true }
             // Dismiss "Saved" after 2 seconds
             Task {
                 try? await Task.sleep(for: .seconds(2))
