@@ -234,12 +234,10 @@ struct ChatView: View {
         }
     }
 
-    /// Models available for manual override — exclude spark variants and codex models.
+    /// Models available for manual override.
+    /// models.list already reflects only connected providers; spark is stripped at load.
     private var filteredModels: [ModelInfo] {
-        agentsVM.availableModels.filter { m in
-            let key = "\(m.id) \(m.name)".lowercased()
-            return !key.contains("spark") && !key.contains("codex")
-        }
+        agentsVM.availableModels
     }
 
     // MARK: - Messages Area

@@ -147,11 +147,10 @@ class AgentsViewModel: ObservableObject {
                 )
             }
 
-            // Exclude spark and codex-labelled models — these are internal/unavailable
-            availableModels = allModels.filter { m in
-                let key = "\(m.id) \(m.name)".lowercased()
-                return !key.contains("spark") && !key.contains("codex")
-            }
+            // models.list only returns providers that are connected/authenticated —
+            // no Anthropic models appear unless Anthropic is set up, etc.
+            // The only synthetic entry to strip is the auto-appended "spark" fallback.
+            availableModels = allModels.filter { !$0.id.lowercased().contains("spark") }
         } catch {
             print("[AgentsVM] Failed to load models: \(error)")
         }
