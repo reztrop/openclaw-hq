@@ -17,6 +17,7 @@ class AgentsViewModel: ObservableObject {
     init(gatewayService: GatewayService) {
         self.gatewayService = gatewayService
         subscribeToEvents()
+        subscribeToConnectionState()
         startAutoRefresh()
     }
 
@@ -129,6 +130,9 @@ class AgentsViewModel: ObservableObject {
     // MARK: - Models
 
     func loadModels() async {
+        // Don't reload if we already have a filtered list for this session.
+        // availableModels is reset to [] whenever the connection drops/reconnects,
+        // ensuring we always reload with the current auth.json on each new connection.
         guard availableModels.isEmpty else { return }
         isLoadingModels = true
         defer { isLoadingModels = false }
@@ -271,6 +275,20 @@ class AgentsViewModel: ObservableObject {
     }
 
     // MARK: - Event Subscriptions
+
+    /// Reset availableModels whenever the connection drops so that the next
+    /// loadModels() call always re-reads auth.json and re-filters against
+    /// the current set of authenticated providers.
+    private func subscribeToConnectionState() {
+        gatewayService.$connectionState
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] state in
+                if case .disconnected = state {
+                    self?.availableModels = []
+                }
+            }
+            .store(in: &cancellables)
+    }
 
     private func subscribeToEvents() {
         gatewayService.agentEventSubject
