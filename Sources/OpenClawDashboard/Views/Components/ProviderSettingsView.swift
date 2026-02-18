@@ -21,36 +21,36 @@ private let knownProviders: [ProviderInfo] = [
     ProviderInfo(id: "meta",          displayName: "Meta / Llama",   icon: "theatermasks"),
 ]
 
-private func displayName(for providerId: String) -> String {
-    knownProviders.first(where: { $0.id == providerId })?.displayName
-        ?? providerId
-            .replacingOccurrences(of: "-", with: " ")
-            .capitalized
+private func providerDisplayName(for id: String) -> String {
+    knownProviders.first(where: { $0.id == id })?.displayName
+        ?? id.replacingOccurrences(of: "-", with: " ").capitalized
 }
 
-private func icon(for providerId: String) -> String {
-    knownProviders.first(where: { $0.id == providerId })?.icon ?? "cpu"
+private func providerIcon(for id: String) -> String {
+    knownProviders.first(where: { $0.id == id })?.icon ?? "cpu"
 }
 
 // MARK: - Provider Settings View
 
 /// Shown at the bottom of the main sidebar.
-/// Reads auth.json to discover which providers are installed, then lets
-/// the user toggle which ones are active for the Chat model picker.
+/// Reads auth.json to discover installed providers; lets the user toggle
+/// which are active so the Chat model picker only shows relevant models.
 struct ProviderSettingsView: View {
-    @EnvironmentObject var settingsService: SettingsService
+    /// Passed directly from ContentView — avoids environment object lookup issues
+    /// inside safeAreaInset / sidebar list containers on macOS.
+    @ObservedObject var settingsService: SettingsService
 
-    /// All provider IDs found in auth.json
     @State private var detectedProviders: [String] = []
     @State private var isExpanded: Bool = false
 
     var body: some View {
         VStack(spacing: 0) {
-            Divider().background(Theme.darkBorder)
+            Divider()
+                .background(Theme.darkBorder)
 
-            // Collapse / expand header
+            // Collapsible header row
             Button {
-                withAnimation(.easeInOut(duration: 0.2)) {
+                withAnimation(.easeInOut(duration: 0.18)) {
                     isExpanded.toggle()
                 }
             } label: {
@@ -66,26 +66,26 @@ struct ProviderSettingsView: View {
                         .font(.caption2)
                         .foregroundColor(Theme.textMuted)
                 }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 8)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 7)
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
 
             if isExpanded {
                 if detectedProviders.isEmpty {
-                    Text("No API connections found in auth.json")
+                    Text("No providers found in auth.json")
                         .font(.caption2)
                         .foregroundColor(Theme.textMuted)
-                        .padding(.horizontal, 16)
+                        .padding(.horizontal, 14)
                         .padding(.bottom, 8)
                 } else {
                     VStack(spacing: 2) {
-                        ForEach(detectedProviders, id: \.self) { providerId in
-                            providerRow(providerId)
+                        ForEach(detectedProviders, id: \.self) { pid in
+                            providerRow(pid)
                         }
                     }
-                    .padding(.horizontal, 12)
+                    .padding(.horizontal, 10)
                     .padding(.bottom, 8)
                 }
             }
@@ -96,20 +96,21 @@ struct ProviderSettingsView: View {
 
     // MARK: - Row
 
-    private func providerRow(_ providerId: String) -> some View {
-        let enabled = isEnabled(providerId)
-        return HStack(spacing: 8) {
-            Image(systemName: icon(for: providerId))
+    @ViewBuilder
+    private func providerRow(_ pid: String) -> some View {
+        let enabled = isEnabled(pid)
+        HStack(spacing: 8) {
+            Image(systemName: providerIcon(for: pid))
                 .font(.caption)
                 .foregroundColor(enabled ? Theme.jarvisBlue : Theme.textMuted)
                 .frame(width: 16)
-            Text(displayName(for: providerId))
+            Text(providerDisplayName(for: pid))
                 .font(.caption)
                 .foregroundColor(enabled ? .white : Theme.textMuted)
             Spacer()
             Toggle("", isOn: Binding(
-                get: { isEnabled(providerId) },
-                set: { _ in toggle(providerId) }
+                get: { isEnabled(pid) },
+                set: { _ in toggleProvider(pid) }
             ))
             .toggleStyle(.switch)
             .scaleEffect(0.7)
@@ -122,50 +123,42 @@ struct ProviderSettingsView: View {
                 .fill(enabled ? Theme.jarvisBlue.opacity(0.08) : Color.clear)
         )
         .contentShape(Rectangle())
-        .onTapGesture { toggle(providerId) }
+        .onTapGesture { toggleProvider(pid) }
         .animation(.easeOut(duration: 0.15), value: enabled)
     }
 
     // MARK: - Helpers
 
-    private func isEnabled(_ providerId: String) -> Bool {
-        guard let list = settingsService.settings.enabledProviders else {
-            // nil = first launch, treat all as enabled
-            return true
-        }
-        return list.contains(providerId)
+    private func isEnabled(_ pid: String) -> Bool {
+        guard let list = settingsService.settings.enabledProviders else { return true }
+        return list.contains(pid)
     }
 
-    private func toggle(_ providerId: String) {
+    private func toggleProvider(_ pid: String) {
         settingsService.update { s in
-            // Initialise from detected providers if first toggle
             var current = s.enabledProviders ?? detectedProviders
-            if current.contains(providerId) {
-                current.removeAll { $0 == providerId }
+            if current.contains(pid) {
+                current.removeAll { $0 == pid }
             } else {
-                current.append(providerId)
+                current.append(pid)
             }
             s.enabledProviders = current
         }
     }
 
     private func reload() {
-        detectedProviders = loadDetectedProviders()
-        // If enabledProviders hasn't been set yet, seed it from detected list
+        detectedProviders = readAuthProviders()
         if settingsService.settings.enabledProviders == nil {
-            settingsService.update { s in
-                s.enabledProviders = detectedProviders
-            }
+            settingsService.update { s in s.enabledProviders = detectedProviders }
         }
     }
 
-    private func loadDetectedProviders() -> [String] {
+    private func readAuthProviders() -> [String] {
         let home = FileManager.default.homeDirectoryForCurrentUser.path
-        let authPath = "\(home)/.openclaw/agents/main/agent/auth.json"
-        guard let data = FileManager.default.contents(atPath: authPath),
-              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
-            return []
-        }
+        let path = "\(home)/.openclaw/agents/main/agent/auth.json"
+        guard let data = FileManager.default.contents(atPath: path),
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+        else { return [] }
         return json.keys.sorted()
     }
 }

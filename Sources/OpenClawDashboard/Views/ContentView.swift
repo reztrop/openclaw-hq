@@ -29,23 +29,29 @@ struct ContentView: View {
     // MARK: - Sidebar
 
     private var sidebar: some View {
-        List(AppTab.allCases, id: \.self, selection: $appViewModel.selectedTab) { tab in
-            Label(tab.rawValue, systemImage: tab.icon)
-                .font(.headline)
-                .foregroundColor(appViewModel.selectedTab == tab ? .white : Theme.textSecondary)
-                .padding(.vertical, 6)
-        }
-        .listStyle(.sidebar)
-        .frame(minWidth: 180)
-        .safeAreaInset(edge: .top) {
+        VStack(spacing: 0) {
+            // App title header
             sidebarHeader
-        }
-        .safeAreaInset(edge: .bottom) {
-            VStack(spacing: 0) {
-                ProviderSettingsView()
-                connectionStatus
+
+            Divider().background(Theme.darkBorder)
+
+            // Tab navigation list — takes all remaining vertical space
+            List(AppTab.allCases, id: \.self, selection: $appViewModel.selectedTab) { tab in
+                Label(tab.rawValue, systemImage: tab.icon)
+                    .font(.headline)
+                    .foregroundColor(appViewModel.selectedTab == tab ? .white : Theme.textSecondary)
+                    .padding(.vertical, 6)
             }
+            .listStyle(.sidebar)
+
+            // API Connections toggle panel — passed settingsService directly
+            // to avoid environment object resolution issues inside NavigationSplitView
+            ProviderSettingsView(settingsService: appViewModel.settingsService)
+
+            // Connection status + settings gear
+            connectionStatus
         }
+        .frame(minWidth: 180)
     }
 
     private var sidebarHeader: some View {
@@ -60,6 +66,7 @@ struct ContentView: View {
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 12)
+        .background(Theme.darkBackground)
     }
 
     private var connectionStatus: some View {
