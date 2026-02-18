@@ -10,6 +10,12 @@ struct LocalAgentConfig: Codable, Identifiable {
     var idleAvatarPath: String? = nil
 }
 
+struct LocalChatConversationConfig: Codable, Identifiable {
+    var id: String            // sessionKey
+    var customTitle: String? = nil
+    var isArchived: Bool = false
+}
+
 struct AppSettings: Codable {
     var gatewayHost: String
     var gatewayPort: Int
@@ -19,6 +25,7 @@ struct AppSettings: Codable {
     var showOfflineAgents: Bool
     var onboardingComplete: Bool
     var localAgents: [LocalAgentConfig]
+    var localChats: [LocalChatConversationConfig]
     /// Provider IDs (matching auth.json keys) the user has enabled.
     /// nil = not yet set (treat as "all available providers enabled").
     var enabledProviders: [String]?
@@ -36,6 +43,7 @@ struct AppSettings: Codable {
         showOfflineAgents: true,
         onboardingComplete: false,
         localAgents: [],
+        localChats: [],
         enabledProviders: nil
     )
 

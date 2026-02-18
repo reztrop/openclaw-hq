@@ -39,27 +39,35 @@ class ChatViewModel: ObservableObject {
     @Published var isSending = false
 
     private let gatewayService: GatewayService
+    private let settingsService: SettingsService
     private let maxInlineAttachmentChars = 12_000
+    private let genericConversationTitles: Set<String> = ["Chat", "New Chat"]
 
     private var uploadsDir: String {
         NSString(string: "~/.openclaw/workspace/uploads/chat").expandingTildeInPath
     }
 
-    init(gatewayService: GatewayService) {
+    init(gatewayService: GatewayService, settingsService: SettingsService) {
         self.gatewayService = gatewayService
+        self.settingsService = settingsService
         ensureUploadDirectory()
     }
 
     func refresh(agentIds: [String]) async {
         do {
+            let localMap = Dictionary(uniqueKeysWithValues: settingsService.settings.localChats.map { ($0.id, $0) })
             let raw = try await gatewayService.fetchSessionsList()
             let mapped = raw.compactMap { dict -> ChatConversation? in
                 guard let session = Session.from(dict: dict) else { return nil }
                 let agentId = session.agentId ?? "jarvis"
                 guard agentIds.isEmpty || agentIds.contains(agentId) else { return nil }
+                if localMap[session.key]?.isArchived == true { return nil }
+                let fallbackTitle = session.label ?? "Chat"
+                let localTitle = localMap[session.key]?.customTitle?.trimmingCharacters(in: .whitespacesAndNewlines)
+                let title = (localTitle?.isEmpty == false) ? (localTitle ?? fallbackTitle) : fallbackTitle
                 return ChatConversation(
                     id: session.key,
-                    title: session.label ?? "Chat",
+                    title: title,
                     agentId: agentId,
                     updatedAt: session.updatedAt ?? Date()
                 )
@@ -122,6 +130,7 @@ class ChatViewModel: ObservableObject {
         do {
             let history = try await gatewayService.fetchSessionHistory(sessionKey: sessionKey, limit: 200)
             messages = history
+            ensureGeneratedTitle(for: sessionKey, messages: history)
         } catch {
             print("[ChatVM] history load failed: \(error)")
             messages = []
@@ -216,16 +225,20 @@ class ChatViewModel: ObservableObject {
             messages.append(ChatMessage(id: UUID().uuidString, role: "assistant", text: assistantText, createdAt: Date()))
 
             if let key = selectedConversationId {
-                let title = messages.first(where: { $0.isUser })?.text.prefix(64) ?? "Chat"
+                let title = generateConversationTitle(from: userVisibleText, fallback: messages.first(where: { $0.isUser })?.text ?? "Chat")
                 let existing = conversations.firstIndex { $0.id == key }
                 if let idx = existing {
                     conversations[idx].updatedAt = Date()
                     conversations[idx].agentId = outboundAgentId
-                    if conversations[idx].title == "Chat" || conversations[idx].title == "New Chat" {
-                        conversations[idx].title = String(title)
+                    if isGenericTitle(conversations[idx].title) {
+                        conversations[idx].title = title
                     }
                 } else {
-                    conversations.insert(ChatConversation(id: key, title: String(title), agentId: outboundAgentId, updatedAt: Date()), at: 0)
+                    conversations.insert(ChatConversation(id: key, title: title, agentId: outboundAgentId, updatedAt: Date()), at: 0)
+                }
+                saveChatConfig(sessionKey: key) { config in
+                    config.customTitle = title
+                    config.isArchived = false
                 }
                 conversations.sort { $0.updatedAt > $1.updatedAt }
             }
@@ -240,6 +253,32 @@ class ChatViewModel: ObservableObject {
     var selectedConversationIsLockedToAgent: Bool {
         guard let key = selectedConversationId else { return false }
         return !key.hasPrefix("draft:")
+    }
+
+    func archiveConversation(_ sessionKey: String) {
+        guard !sessionKey.hasPrefix("draft:") else {
+            conversations.removeAll { $0.id == sessionKey }
+            if selectedConversationId == sessionKey {
+                selectedConversationId = conversations.first?.id
+                messages = []
+            }
+            return
+        }
+
+        saveChatConfig(sessionKey: sessionKey) { config in
+            config.isArchived = true
+        }
+
+        conversations.removeAll { $0.id == sessionKey }
+
+        if selectedConversationId == sessionKey {
+            selectedConversationId = conversations.first?.id
+            if let first = selectedConversationId {
+                Task { await loadConversation(sessionKey: first) }
+            } else {
+                messages = []
+            }
+        }
     }
 
     private func buildAttachmentContext(_ attachments: [ChatAttachment]) -> String {
@@ -290,6 +329,50 @@ class ChatViewModel: ObservableObject {
             try FileManager.default.createDirectory(atPath: uploadsDir, withIntermediateDirectories: true)
         } catch {
             print("[ChatVM] failed to create uploads dir: \(error)")
+        }
+    }
+
+    private func ensureGeneratedTitle(for sessionKey: String, messages: [ChatMessage]) {
+        guard let idx = conversations.firstIndex(where: { $0.id == sessionKey }) else { return }
+        guard isGenericTitle(conversations[idx].title) else { return }
+        guard let firstUser = messages.first(where: { $0.isUser })?.text else { return }
+
+        let title = generateConversationTitle(from: firstUser, fallback: firstUser)
+        conversations[idx].title = title
+        saveChatConfig(sessionKey: sessionKey) { config in
+            config.customTitle = title
+            config.isArchived = false
+        }
+    }
+
+    private func generateConversationTitle(from candidate: String, fallback: String) -> String {
+        let source = candidate.trimmingCharacters(in: .whitespacesAndNewlines)
+        let normalized = source
+            .replacingOccurrences(of: "\n", with: " ")
+            .replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let usable = normalized.isEmpty || normalized == "[Attached files]" ? fallback : normalized
+        if usable.isEmpty { return "Chat" }
+        if usable.count <= 56 { return usable }
+        let prefix = usable.prefix(56).trimmingCharacters(in: .whitespacesAndNewlines)
+        return "\(prefix)…"
+    }
+
+    private func isGenericTitle(_ title: String) -> Bool {
+        genericConversationTitles.contains(title.trimmingCharacters(in: .whitespacesAndNewlines))
+    }
+
+    private func saveChatConfig(sessionKey: String, update: (inout LocalChatConversationConfig) -> Void) {
+        settingsService.update { settings in
+            var chats = settings.localChats
+            var config = chats.first(where: { $0.id == sessionKey }) ?? LocalChatConversationConfig(id: sessionKey)
+            update(&config)
+            if let idx = chats.firstIndex(where: { $0.id == sessionKey }) {
+                chats[idx] = config
+            } else {
+                chats.append(config)
+            }
+            settings.localChats = chats
         }
     }
 }

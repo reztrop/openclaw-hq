@@ -416,27 +416,42 @@ struct ChatView: View {
             ScrollView {
                 LazyVStack(spacing: 6) {
                     ForEach(chatVM.conversations) { convo in
-                        Button {
-                            Task {
-                                chatVM.selectedAgentId = convo.agentId
-                                await chatVM.loadConversation(sessionKey: convo.id)
+                        HStack(spacing: 6) {
+                            Button {
+                                Task {
+                                    chatVM.selectedAgentId = convo.agentId
+                                    await chatVM.loadConversation(sessionKey: convo.id)
+                                }
+                            } label: {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text(convo.title.isEmpty ? "Chat" : convo.title)
+                                        .font(.subheadline)
+                                        .foregroundColor(.white)
+                                        .lineLimit(2)
+                                    Text(convo.updatedAt.formatted(.dateTime.month().day().hour().minute()))
+                                        .font(.caption2)
+                                        .foregroundColor(Theme.textMuted)
+                                }
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(10)
+                                .background(chatVM.selectedConversationId == convo.id ? Theme.darkAccent : Theme.darkSurface.opacity(0.7))
+                                .cornerRadius(10)
                             }
-                        } label: {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(convo.title.isEmpty ? "Chat" : convo.title)
-                                    .font(.subheadline)
-                                    .foregroundColor(.white)
-                                    .lineLimit(2)
-                                Text(convo.updatedAt.formatted(.dateTime.month().day().hour().minute()))
-                                    .font(.caption2)
+                            .buttonStyle(.plain)
+
+                            Menu {
+                                Button(role: .destructive) {
+                                    chatVM.archiveConversation(convo.id)
+                                } label: {
+                                    Label("Archive Chat", systemImage: "archivebox")
+                                }
+                            } label: {
+                                Image(systemName: "ellipsis.circle")
                                     .foregroundColor(Theme.textMuted)
                             }
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(10)
-                            .background(chatVM.selectedConversationId == convo.id ? Theme.darkAccent : Theme.darkSurface.opacity(0.7))
-                            .cornerRadius(10)
+                            .menuStyle(.borderlessButton)
+                            .fixedSize()
                         }
-                        .buttonStyle(.plain)
                     }
                 }
             }
