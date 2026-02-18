@@ -376,7 +376,10 @@ struct ChatView: View {
                     Image(systemName: "paperplane.fill")
                 }
                 .buttonStyle(.borderedProminent)
-                .disabled(chatVM.draftMessage.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || chatVM.isSending)
+                .disabled(
+                    (chatVM.draftMessage.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && chatVM.pendingAttachments.isEmpty)
+                    || chatVM.isSending
+                )
             }
         }
         .padding(12)

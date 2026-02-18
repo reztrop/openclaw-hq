@@ -66,12 +66,19 @@ class ChatViewModel: ObservableObject {
             }
             conversations = mapped.sorted { $0.updatedAt > $1.updatedAt }
 
-            if selectedConversationId == nil {
+            if let selected = selectedConversationId,
+               !selected.hasPrefix("draft:"),
+               !conversations.contains(where: { $0.id == selected }) {
+                selectedConversationId = conversations.first?.id
+            } else if selectedConversationId == nil {
                 selectedConversationId = conversations.first?.id
             }
 
             if let key = selectedConversationId {
                 await loadConversation(sessionKey: key)
+            } else if let fallback = agentIds.first {
+                selectedAgentId = fallback
+                selectedModelId = nil
             }
         } catch {
             print("[ChatVM] refresh failed: \(error)")
@@ -79,9 +86,12 @@ class ChatViewModel: ObservableObject {
     }
 
     func startNewChat(defaultAgentId: String) {
+        conversations.removeAll { $0.isDraft }
+
         let draftId = "draft:\(UUID().uuidString)"
         selectedConversationId = draftId
         selectedAgentId = defaultAgentId
+        selectedModelId = nil
         messages = []
         draftMessage = ""
         pendingAttachments = []
@@ -96,9 +106,18 @@ class ChatViewModel: ObservableObject {
         selectedConversationId = sessionKey
 
         if sessionKey.hasPrefix("draft:") {
+            if let convo = conversations.first(where: { $0.id == sessionKey }) {
+                selectedAgentId = convo.agentId
+            }
             messages = []
             return
         }
+
+        if let convo = conversations.first(where: { $0.id == sessionKey }) {
+            selectedAgentId = convo.agentId
+        }
+        // Model overrides are per-send UI choices and should not carry across conversations.
+        selectedModelId = nil
 
         do {
             let history = try await gatewayService.fetchSessionHistory(sessionKey: sessionKey, limit: 200)
@@ -144,9 +163,11 @@ class ChatViewModel: ObservableObject {
 
     func sendCurrentMessage() async {
         let trimmed = draftMessage.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty, !isSending else { return }
+        guard !isSending else { return }
+        guard !trimmed.isEmpty || !pendingAttachments.isEmpty else { return }
 
-        let userMsg = ChatMessage(id: UUID().uuidString, role: "user", text: trimmed, createdAt: Date())
+        let userVisibleText = trimmed.isEmpty ? "[Attached files]" : trimmed
+        let userMsg = ChatMessage(id: UUID().uuidString, role: "user", text: userVisibleText, createdAt: Date())
         messages.append(userMsg)
         draftMessage = ""
         isSending = true
@@ -154,8 +175,21 @@ class ChatViewModel: ObservableObject {
         var finalMessage = trimmed
         if !pendingAttachments.isEmpty {
             let attachmentContext = buildAttachmentContext(pendingAttachments)
-            finalMessage += "\n\n\(attachmentContext)"
+            if finalMessage.isEmpty {
+                finalMessage = "Please review the attached files and respond with findings.\n\n\(attachmentContext)"
+            } else {
+                finalMessage += "\n\n\(attachmentContext)"
+            }
         }
+
+        let outboundAgentId: String = {
+            if let key = selectedConversationId,
+               !key.hasPrefix("draft:"),
+               let convo = conversations.first(where: { $0.id == key }) {
+                return convo.agentId
+            }
+            return selectedAgentId
+        }()
 
         do {
             let outboundSessionKey: String? = {
@@ -164,7 +198,7 @@ class ChatViewModel: ObservableObject {
             }()
 
             let response = try await gatewayService.sendAgentMessage(
-                agentId: selectedAgentId,
+                agentId: outboundAgentId,
                 message: finalMessage,
                 sessionKey: outboundSessionKey,
                 thinkingEnabled: thinkingEnabled,
@@ -173,7 +207,7 @@ class ChatViewModel: ObservableObject {
 
             if let key = response.sessionKey {
                 if let old = selectedConversationId, old.hasPrefix("draft:"), let idx = conversations.firstIndex(where: { $0.id == old }) {
-                    conversations[idx] = ChatConversation(id: key, title: conversations[idx].title, agentId: selectedAgentId, updatedAt: Date())
+                    conversations[idx] = ChatConversation(id: key, title: conversations[idx].title, agentId: outboundAgentId, updatedAt: Date())
                 }
                 selectedConversationId = key
             }
@@ -186,12 +220,12 @@ class ChatViewModel: ObservableObject {
                 let existing = conversations.firstIndex { $0.id == key }
                 if let idx = existing {
                     conversations[idx].updatedAt = Date()
-                    conversations[idx].agentId = selectedAgentId
+                    conversations[idx].agentId = outboundAgentId
                     if conversations[idx].title == "Chat" || conversations[idx].title == "New Chat" {
                         conversations[idx].title = String(title)
                     }
                 } else {
-                    conversations.insert(ChatConversation(id: key, title: String(title), agentId: selectedAgentId, updatedAt: Date()), at: 0)
+                    conversations.insert(ChatConversation(id: key, title: String(title), agentId: outboundAgentId, updatedAt: Date()), at: 0)
                 }
                 conversations.sort { $0.updatedAt > $1.updatedAt }
             }
