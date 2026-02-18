@@ -24,30 +24,24 @@ struct AgentManagementView: View {
                 } else {
                     LazyVGrid(columns: columns, spacing: 20) {
                         ForEach(agentsVM.agents) { agent in
-                            AgentCard(agent: agent)
-                                .onTapGesture {
-                                    agentsVM.selectedAgent = agent
+                            AgentCard(agent: agent) {
+                                agentToEdit = agent
+                            }
+                            .onTapGesture {
+                                agentsVM.selectedAgent = agent
+                            }
+                            .contextMenu {
+                                Button(role: .destructive) {
+                                    agentToDelete = agent
+                                    showDeleteConfirm = true
+                                } label: {
+                                    Label(
+                                        agent.isDefaultAgent ? "Cannot Delete Main Agent" : "Delete Agent",
+                                        systemImage: "trash"
+                                    )
                                 }
-                                .contextMenu {
-                                    Button {
-                                        agentToEdit = agent
-                                    } label: {
-                                        Label("Edit Agent", systemImage: "pencil")
-                                    }
-
-                                    Divider()
-
-                                    Button(role: .destructive) {
-                                        agentToDelete = agent
-                                        showDeleteConfirm = true
-                                    } label: {
-                                        Label(
-                                            agent.isDefaultAgent ? "Cannot Delete Main Agent" : "Delete Agent",
-                                            systemImage: "trash"
-                                        )
-                                    }
-                                    .disabled(agent.isDefaultAgent)
-                                }
+                                .disabled(agent.isDefaultAgent)
+                            }
                         }
                     }
                     .padding(24)
@@ -100,16 +94,9 @@ struct AgentManagementView: View {
                 } label: {
                     Label("Add Agent", systemImage: "plus.circle.fill")
                 }
+                .labelStyle(.titleAndIcon)
                 .disabled(!gatewayService.isConnected)
                 .help("Create a new agent")
-
-                // Refresh button
-                Button {
-                    Task { await agentsVM.refreshAgents() }
-                } label: {
-                    Image(systemName: "arrow.clockwise")
-                }
-                .disabled(agentsVM.isRefreshing)
             }
         }
     }

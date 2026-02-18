@@ -141,7 +141,7 @@ struct EditAgentView: View {
             }
         }
         .background(Theme.darkBackground)
-        .frame(minWidth: 540, minHeight: 480)
+        .frame(minWidth: 600, minHeight: 620)
         .preferredColorScheme(.dark)
     }
 
@@ -181,7 +181,7 @@ struct EditAgentView: View {
             }) {
                 ZStack {
                     if let p = path.wrappedValue, let img = NSImage(contentsOfFile: p) {
-                        Image(nsImage: img).resizable().aspectRatio(contentMode: .fill)
+                        Image(nsImage: img).resizable().interpolation(.high).antialiased(true).aspectRatio(contentMode: .fill)
                             .frame(width: 64, height: 64).clipShape(RoundedRectangle(cornerRadius: 8))
                     } else {
                         RoundedRectangle(cornerRadius: 8)

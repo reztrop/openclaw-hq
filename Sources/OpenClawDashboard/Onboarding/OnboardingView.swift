@@ -565,6 +565,8 @@ struct AvatarSetupStep: View {
                     if let p = path, let img = NSImage(contentsOfFile: p) {
                         Image(nsImage: img)
                             .resizable()
+                            .interpolation(.high)
+                            .antialiased(true)
                             .aspectRatio(contentMode: .fill)
                             .frame(width: 120, height: 120)
                             .clipShape(Circle())

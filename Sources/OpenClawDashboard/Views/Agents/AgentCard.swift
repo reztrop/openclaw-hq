@@ -2,6 +2,7 @@ import SwiftUI
 
 struct AgentCard: View {
     let agent: Agent
+    var onEdit: (() -> Void)? = nil
     @State private var isHovered = false
 
     var body: some View {
@@ -80,6 +81,19 @@ struct AgentCard: View {
         .animation(.easeOut(duration: 0.2), value: isHovered)
         .onHover { hovering in
             isHovered = hovering
+        }
+        .overlay(alignment: .topTrailing) {
+            if let onEdit {
+                Button(action: onEdit) {
+                    Image(systemName: "pencil.circle.fill")
+                        .font(.title2)
+                        .foregroundColor(Theme.jarvisBlue)
+                        .padding(10)
+                }
+                .buttonStyle(.plain)
+                .opacity(isHovered ? 1 : 0)
+                .animation(.easeOut(duration: 0.15), value: isHovered)
+            }
         }
     }
 }

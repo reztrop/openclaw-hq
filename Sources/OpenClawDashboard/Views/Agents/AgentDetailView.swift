@@ -11,25 +11,18 @@ struct AgentDetailView: View {
             // Header
             HStack {
                 // Agent identity
-                HStack(spacing: 8) {
-                    AgentAvatar(
-                        agentName: agent.name,
-                        isActive: agent.status.isActive,
-                        size: 40
-                    )
-                    VStack(alignment: .leading, spacing: 2) {
-                        HStack(spacing: 4) {
-                            Text(agent.emoji)
-                            Text(agent.name)
-                                .fontWeight(.bold)
-                                .foregroundColor(.white)
-                        }
-                        HStack(spacing: 4) {
-                            StatusIndicator(status: agent.status, size: 8)
-                            Text(agent.status.label)
-                                .font(.caption)
-                                .foregroundColor(agent.status.color)
-                        }
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack(spacing: 4) {
+                        Text(agent.emoji)
+                        Text(agent.name)
+                            .fontWeight(.bold)
+                            .foregroundColor(.white)
+                    }
+                    HStack(spacing: 4) {
+                        StatusIndicator(status: agent.status, size: 8)
+                        Text(agent.status.label)
+                            .font(.caption)
+                            .foregroundColor(agent.status.color)
                     }
                 }
                 Spacer()
@@ -42,16 +35,23 @@ struct AgentDetailView: View {
             }
             .padding()
 
-            // Tab picker
-            Picker("", selection: $selectedSection) {
-                Text("Info").tag(0)
-                if agent.status.isActive {
+            // Tab picker (only shown when Command tab is available)
+            if agent.status.isActive {
+                Picker("", selection: $selectedSection) {
+                    Text("Info").tag(0)
                     Text("Command").tag(1)
                 }
+                .pickerStyle(.segmented)
+                .padding(.horizontal)
+                .padding(.bottom, 8)
+            } else {
+                Text("Agent Info")
+                    .font(.title3)
+                    .fontWeight(.semibold)
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.bottom, 8)
             }
-            .pickerStyle(.segmented)
-            .padding(.horizontal)
-            .padding(.bottom, 8)
 
             // Content
             if selectedSection == 0 {

@@ -46,6 +46,8 @@ struct AgentAvatar: View {
         if let nsImage = AvatarService.shared.loadAvatar(for: agentName, state: state) {
             Image(nsImage: nsImage)
                 .resizable()
+                .interpolation(.high)
+                .antialiased(true)
                 .aspectRatio(contentMode: .fill)
         } else {
             // Gradient fallback when no image file is present
@@ -63,6 +65,8 @@ struct AgentAvatarSmall: View {
         if let nsImage = AvatarService.shared.loadAvatar(for: agentName, state: .active) {
             Image(nsImage: nsImage)
                 .resizable()
+                .interpolation(.high)
+                .antialiased(true)
                 .aspectRatio(contentMode: .fill)
                 .frame(width: size, height: size)
                 .clipShape(Circle())

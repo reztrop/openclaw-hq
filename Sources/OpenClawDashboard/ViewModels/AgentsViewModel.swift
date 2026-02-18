@@ -67,7 +67,7 @@ class AgentsViewModel: ObservableObject {
                     name: rawName.isEmpty ? id : rawName,
                     emoji: emoji,
                     role: id == defaultId ? "Main Agent" : "Agent",
-                    status: .offline,
+                    status: gatewayService.isConnected ? .idle : .offline,
                     totalTokens: 0,
                     sessionCount: 0,
                     isDefaultAgent: id == defaultId
@@ -110,19 +110,12 @@ class AgentsViewModel: ObservableObject {
             for p in presence {
                 if let agentId = p["agentId"] as? String,
                    let idx = agents.firstIndex(where: { $0.id == agentId }) {
-                    if agents[idx].status == .offline {
+                    if agents[idx].status == .idle || agents[idx].status == .offline {
                         agents[idx].status = .online
                     }
                     agents[idx].lastSeen = Date()
                 }
             }
-        }
-
-        // Main agent is at least idle if gateway is connected
-        if let defaultId = defaultAgentId,
-           let idx = agents.firstIndex(where: { $0.id == defaultId }),
-           agents[idx].status == .offline {
-            agents[idx].status = .idle
         }
     }
 
