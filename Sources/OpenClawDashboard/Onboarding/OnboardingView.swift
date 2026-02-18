@@ -43,7 +43,7 @@ struct OnboardingView: View {
                 .id(vm.step)
             }
         }
-        .frame(minWidth: 640, minHeight: 500)
+        .frame(minWidth: 640, minHeight: 560)
         .preferredColorScheme(.dark)
     }
 
@@ -99,14 +99,15 @@ struct WelcomeStep: View {
                     .multilineTextAlignment(.center)
                     .foregroundColor(.orange)
                     .font(.callout)
+                    .fixedSize(horizontal: false, vertical: true)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 6)
                     .background(Color.orange.opacity(0.1))
                     .clipShape(RoundedRectangle(cornerRadius: 8))
 
-                Text("Don't have OpenClaw? Visit openclaw.com")
+                Link("Don't have OpenClaw? Visit openclaw.com", destination: URL(string: "https://openclaw.com")!)
                     .font(.caption)
-                    .foregroundColor(Theme.textMuted)
+                    .foregroundColor(Theme.jarvisBlue)
             }
             .frame(maxWidth: 480)
 
@@ -423,7 +424,7 @@ struct AgentDiscoveryStep: View {
                             }
                         }
                     }
-                    .frame(maxWidth: 440)
+                    .frame(maxWidth: 440, minHeight: 200)
                     .padding(16)
                     .background(Theme.darkSurface)
                     .clipShape(RoundedRectangle(cornerRadius: 12))
