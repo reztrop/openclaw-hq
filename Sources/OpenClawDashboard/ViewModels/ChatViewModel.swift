@@ -153,7 +153,7 @@ class ChatViewModel: ObservableObject {
                 selectedConversationId = key
             }
 
-            let assistantText = response.text.isEmpty ? "(No response body)" : response.text
+            let assistantText = response.text.isEmpty ? "(No response — the agent may still be processing. Try refreshing the conversation.)" : response.text
             messages.append(ChatMessage(id: UUID().uuidString, role: "assistant", text: assistantText, createdAt: Date()))
 
             if let key = selectedConversationId {

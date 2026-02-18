@@ -388,59 +388,75 @@ class GatewayService: ObservableObject {
         let sessionKey: String?
     }
 
+    /// Derives the gateway session key for an agent.
+    /// Format: "agent:{agentId}:main" (or passes through an explicit key)
+    private func resolveSessionKey(agentId: String, explicitKey: String?) -> String {
+        if let key = explicitKey, !key.isEmpty { return key }
+        return "agent:\(agentId):main"
+    }
+
     func sendAgentMessage(agentId: String, message: String, sessionKey: String?, thinkingEnabled: Bool) async throws -> AgentMessageResponse {
-        var params: [String: Any] = [
-            "agentId": agentId,
+        let resolvedSessionKey = resolveSessionKey(agentId: agentId, explicitKey: sessionKey)
+        let idempotencyKey = UUID().uuidString
+
+        // Step 1: Send the message via `agent` RPC — returns { runId, status: "accepted" }
+        let agentParams: [String: Any] = [
             "message": message,
-            "thinking": thinkingEnabled ? "low" : "off",
-            "idempotencyKey": UUID().uuidString
+            "agentId": agentId,
+            "sessionKey": resolvedSessionKey,
+            "idempotencyKey": idempotencyKey,
+            "thinking": thinkingEnabled ? "low" : "off"
         ]
-        if let sessionKey, !sessionKey.isEmpty {
-            params["sessionKey"] = sessionKey
+        let agentResult = try await sendRPCWithTimeout("agent", params: agentParams, timeout: 30)
+        let agentDict = agentResult?.dictionary ?? [:]
+        guard let runId = agentDict["runId"] as? String, !runId.isEmpty else {
+            throw GatewayError(code: -4, message: "agent RPC did not return a runId (got: \(agentDict.keys.sorted()))")
         }
 
-        let methods = ["agent.wait", "agent"]
-        var lastError: Error?
+        // Step 2: Wait for the agent run to complete via `agent.wait`
+        let waitParams: [String: Any] = [
+            "runId": runId,
+            "timeoutMs": 180_000
+        ]
+        let waitResult = try await sendRPCWithTimeout("agent.wait", params: waitParams, timeout: 185)
+        let waitDict = waitResult?.dictionary ?? [:]
+        let waitStatus = waitDict["status"] as? String ?? "unknown"
+        if waitStatus == "timeout" {
+            throw GatewayError(code: -5, message: "Agent run timed out (runId: \(runId.prefix(8)))")
+        }
+        if waitStatus == "error" {
+            let errMsg = waitDict["error"] as? String ?? "unknown error"
+            throw GatewayError(code: -6, message: "Agent run failed: \(errMsg)")
+        }
 
-        for method in methods {
-            do {
-                let result = try await sendRPCWithTimeout(method, params: params, timeout: 180)?.dictionary ?? [:]
-                let text = (result["response"] as? String)
-                    ?? (result["text"] as? String)
-                    ?? (result["output"] as? String)
-                    ?? ""
-                let key = (result["sessionKey"] as? String)
-                    ?? (result["key"] as? String)
-                    ?? sessionKey
+        // Step 3: Fetch the latest assistant message from chat history
+        let historyResult = try await sendRPC("chat.history", params: ["sessionKey": resolvedSessionKey, "limit": 10])
+        let historyDict = historyResult?.dictionary ?? [:]
+        let messages = historyDict["messages"] as? [[String: Any]] ?? []
 
-                return AgentMessageResponse(text: text, sessionKey: key)
-            } catch {
-                lastError = error
+        // Get the last assistant message
+        let lastAssistant = messages.last(where: { ($0["role"] as? String) == "assistant" })
+        let text: String = {
+            guard let msg = lastAssistant else { return "" }
+            if let t = msg["text"] as? String { return t }
+            if let t = msg["content"] as? String { return t }
+            if let parts = msg["content"] as? [[String: Any]] {
+                return parts.compactMap { $0["text"] as? String }.joined(separator: "\n")
             }
-        }
+            return ""
+        }()
 
-        throw lastError ?? GatewayError(code: -4, message: "No supported chat RPC method succeeded")
+        return AgentMessageResponse(text: text, sessionKey: resolvedSessionKey)
     }
 
     func fetchSessionHistory(sessionKey: String, limit: Int = 200) async throws -> [ChatMessage] {
-        let methods = ["sessions.history", "sessions_history"]
         var rows: [[String: Any]] = []
-        var lastError: Error?
 
-        for method in methods {
-            do {
-                let result = try await sendRPC(method, params: ["sessionKey": sessionKey, "limit": limit])?.dictionary ?? [:]
-                rows = (result["messages"] as? [[String: Any]]) ?? []
-                if !rows.isEmpty || method == methods.last {
-                    break
-                }
-            } catch {
-                lastError = error
-            }
-        }
-
-        if rows.isEmpty, let lastError {
-            throw lastError
+        do {
+            let result = try await sendRPC("chat.history", params: ["sessionKey": sessionKey, "limit": limit])?.dictionary ?? [:]
+            rows = (result["messages"] as? [[String: Any]]) ?? []
+        } catch {
+            throw error
         }
 
         return rows.compactMap { row -> ChatMessage? in
