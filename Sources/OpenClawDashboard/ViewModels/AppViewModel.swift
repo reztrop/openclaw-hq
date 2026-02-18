@@ -27,6 +27,8 @@ class AppViewModel: ObservableObject {
     @Published var isLoading = true
     @Published var errorMessage: String?
     @Published var showOnboarding: Bool = false
+    @Published var isMainSidebarCollapsed: Bool = false
+    @Published var isCompactWindow: Bool = false
 
     let settingsService = SettingsService()
     let gatewayService = GatewayService()

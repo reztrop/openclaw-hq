@@ -23,12 +23,27 @@ struct ContentView: View {
     // MARK: - Main Layout (replaces NavigationSplitView so we own the sidebar fully)
 
     private var mainLayout: some View {
-        HSplitView {
-            sidebarColumn
-                .frame(minWidth: 180, idealWidth: 210, maxWidth: 280)
+        GeometryReader { geo in
+            HSplitView {
+                if !appViewModel.isMainSidebarCollapsed {
+                    sidebarColumn
+                        .frame(minWidth: 180, idealWidth: 210, maxWidth: 280)
+                }
 
-            detailView
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                detailView
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+            .onAppear {
+                updateWindowLayoutFlags(for: geo.size.width)
+            }
+            .onChange(of: geo.size.width) { _, newWidth in
+                updateWindowLayoutFlags(for: newWidth)
+            }
+            .onChange(of: appViewModel.selectedTab) { _, tab in
+                if tab != .chat {
+                    appViewModel.isMainSidebarCollapsed = false
+                }
+            }
         }
     }
 
@@ -172,6 +187,18 @@ struct ContentView: View {
             SettingsView()
                 .environmentObject(appViewModel.settingsService)
                 .environmentObject(appViewModel.gatewayService)
+        }
+    }
+
+    private func updateWindowLayoutFlags(for width: CGFloat) {
+        let compact = width < 1300
+        if appViewModel.isCompactWindow != compact {
+            appViewModel.isCompactWindow = compact
+        }
+        if !compact {
+            appViewModel.isMainSidebarCollapsed = false
+        } else if appViewModel.selectedTab != .chat {
+            appViewModel.isMainSidebarCollapsed = false
         }
     }
 }

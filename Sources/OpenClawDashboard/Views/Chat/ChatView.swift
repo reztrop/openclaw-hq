@@ -139,11 +139,22 @@ struct ChatView: View {
                 if geo.size.width < 1180 {
                     isSidebarCollapsed = true
                 }
+                enforceSidebarRules()
             }
             .onChange(of: geo.size.width) { _, newWidth in
                 if newWidth < 980 {
                     isSidebarCollapsed = true
                 }
+                enforceSidebarRules()
+            }
+            .onChange(of: isSidebarCollapsed) { _, _ in
+                enforceSidebarRules()
+            }
+            .onChange(of: appViewModel.isMainSidebarCollapsed) { _, _ in
+                enforceSidebarRules()
+            }
+            .onChange(of: appViewModel.isCompactWindow) { _, _ in
+                enforceSidebarRules()
             }
         }
         .background(Theme.darkBackground)
@@ -454,5 +465,17 @@ struct ChatView: View {
 
     private func selectedAgentName() -> String {
         agentsVM.agents.first(where: { $0.id == chatVM.selectedAgentId })?.name ?? "Agent"
+    }
+
+    private func enforceSidebarRules() {
+        guard appViewModel.isCompactWindow else { return }
+
+        if !isSidebarCollapsed {
+            if !appViewModel.isMainSidebarCollapsed {
+                appViewModel.isMainSidebarCollapsed = true
+            }
+        } else if appViewModel.isMainSidebarCollapsed {
+            appViewModel.isMainSidebarCollapsed = false
+        }
     }
 }
