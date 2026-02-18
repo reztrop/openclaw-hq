@@ -50,4 +50,57 @@ struct AppSettings: Codable {
     static let filePath: String = {
         NSString(string: "~/.openclaw/workspace/dashboard_settings.json").expandingTildeInPath
     }()
+
+    enum CodingKeys: String, CodingKey {
+        case gatewayHost
+        case gatewayPort
+        case authToken
+        case enableNotifications
+        case refreshInterval
+        case showOfflineAgents
+        case onboardingComplete
+        case localAgents
+        case localChats
+        case enabledProviders
+    }
+
+    init(
+        gatewayHost: String,
+        gatewayPort: Int,
+        authToken: String,
+        enableNotifications: Bool,
+        refreshInterval: Int,
+        showOfflineAgents: Bool,
+        onboardingComplete: Bool,
+        localAgents: [LocalAgentConfig],
+        localChats: [LocalChatConversationConfig],
+        enabledProviders: [String]?
+    ) {
+        self.gatewayHost = gatewayHost
+        self.gatewayPort = gatewayPort
+        self.authToken = authToken
+        self.enableNotifications = enableNotifications
+        self.refreshInterval = refreshInterval
+        self.showOfflineAgents = showOfflineAgents
+        self.onboardingComplete = onboardingComplete
+        self.localAgents = localAgents
+        self.localChats = localChats
+        self.enabledProviders = enabledProviders
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        let d = AppSettings.default
+
+        gatewayHost = try c.decodeIfPresent(String.self, forKey: .gatewayHost) ?? d.gatewayHost
+        gatewayPort = try c.decodeIfPresent(Int.self, forKey: .gatewayPort) ?? d.gatewayPort
+        authToken = try c.decodeIfPresent(String.self, forKey: .authToken) ?? d.authToken
+        enableNotifications = try c.decodeIfPresent(Bool.self, forKey: .enableNotifications) ?? d.enableNotifications
+        refreshInterval = try c.decodeIfPresent(Int.self, forKey: .refreshInterval) ?? d.refreshInterval
+        showOfflineAgents = try c.decodeIfPresent(Bool.self, forKey: .showOfflineAgents) ?? d.showOfflineAgents
+        onboardingComplete = try c.decodeIfPresent(Bool.self, forKey: .onboardingComplete) ?? d.onboardingComplete
+        localAgents = try c.decodeIfPresent([LocalAgentConfig].self, forKey: .localAgents) ?? d.localAgents
+        localChats = try c.decodeIfPresent([LocalChatConversationConfig].self, forKey: .localChats) ?? d.localChats
+        enabledProviders = try c.decodeIfPresent([String].self, forKey: .enabledProviders)
+    }
 }

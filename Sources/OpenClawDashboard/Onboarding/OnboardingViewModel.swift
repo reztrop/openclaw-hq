@@ -40,6 +40,11 @@ enum ConnectionMode {
     case remote  // Remote / Manual
 }
 
+struct OnboardingAgentEdit {
+    var name: String
+    var emoji: String
+}
+
 // MARK: - OnboardingViewModel
 @MainActor
 class OnboardingViewModel: ObservableObject {
@@ -62,8 +67,13 @@ class OnboardingViewModel: ObservableObject {
     @Published var mainAgent: Agent?
     @Published var agentName: String = ""
     @Published var agentEmoji: String = "🤖"
+    @Published var selectedEditableAgentId: String?
+    @Published var editableAgentName: String = ""
+    @Published var editableAgentEmoji: String = "🤖"
+    @Published var agentSaveNotice: String?
     @Published var isLoadingAgents = false
     @Published var agentDiscoveryError: String?
+    @Published var agentEdits: [String: OnboardingAgentEdit] = [:]
 
     // Avatar Setup
     @Published var activeImagePath: String? = nil
@@ -202,6 +212,15 @@ class OnboardingViewModel: ObservableObject {
                 agentName = first.name
                 agentEmoji = first.emoji
             }
+
+            agentEdits = Dictionary(uniqueKeysWithValues: discoveredAgents.map {
+                ($0.id, OnboardingAgentEdit(name: $0.name, emoji: $0.emoji))
+            })
+            if let main = mainAgent {
+                selectAgentForEditing(agentId: main.id)
+            } else if let first = discoveredAgents.first {
+                selectAgentForEditing(agentId: first.id)
+            }
         } catch {
             agentDiscoveryError = error.localizedDescription
         }
@@ -212,27 +231,33 @@ class OnboardingViewModel: ObservableObject {
     func completeOnboarding(settingsService: SettingsService) async {
         guard let svc = gatewayService else { return }
 
-        // Update main agent name/emoji if changed
-        if let main = mainAgent {
-            let nameTrimmed = agentName.trimmingCharacters(in: .whitespaces)
-            if !nameTrimmed.isEmpty && nameTrimmed != main.name {
-                _ = try? await svc.updateAgent(agentId: main.id, name: nameTrimmed)
+        var localAgents = settingsService.settings.localAgents
+        for discovered in discoveredAgents {
+            let edit = agentEdits[discovered.id] ?? OnboardingAgentEdit(name: discovered.name, emoji: discovered.emoji)
+            let nameTrimmed = edit.name.trimmingCharacters(in: .whitespacesAndNewlines)
+            let finalName = nameTrimmed.isEmpty ? discovered.name : nameTrimmed
+            let finalEmoji = edit.emoji.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "🤖" : edit.emoji
+
+            if finalName != discovered.name {
+                _ = try? await svc.updateAgent(agentId: discovered.id, name: finalName)
             }
 
-            // Save avatar paths into settings
-            var localAgents = settingsService.settings.localAgents
-            var config = localAgents.first(where: { $0.id == main.id }) ?? LocalAgentConfig(id: main.id)
-            config.activeAvatarPath = activeImagePath
-            config.idleAvatarPath = idleImagePath
-            config.displayName = nameTrimmed.isEmpty ? nil : nameTrimmed
-            config.emoji = agentEmoji
-            if let idx = localAgents.firstIndex(where: { $0.id == main.id }) {
+            var config = localAgents.first(where: { $0.id == discovered.id }) ?? LocalAgentConfig(id: discovered.id)
+            config.displayName = finalName
+            config.emoji = finalEmoji
+
+            if discovered.id == mainAgent?.id {
+                config.activeAvatarPath = activeImagePath
+                config.idleAvatarPath = idleImagePath
+            }
+
+            if let idx = localAgents.firstIndex(where: { $0.id == discovered.id }) {
                 localAgents[idx] = config
             } else {
                 localAgents.append(config)
             }
-            settingsService.settings.localAgents = localAgents
         }
+        settingsService.settings.localAgents = localAgents
 
         // Save connection settings + mark onboarding complete
         let portNum = Int(port) ?? 18789
@@ -263,5 +288,49 @@ class OnboardingViewModel: ObservableObject {
         withAnimation(.easeInOut(duration: 0.35)) {
             step = prev
         }
+    }
+
+    // MARK: - Agent Editing
+
+    func selectAgentForEditing(agentId: String) {
+        selectedEditableAgentId = agentId
+        if let edit = agentEdits[agentId] {
+            editableAgentName = edit.name
+            editableAgentEmoji = edit.emoji
+        } else if let found = discoveredAgents.first(where: { $0.id == agentId }) {
+            editableAgentName = found.name
+            editableAgentEmoji = found.emoji
+        }
+        agentSaveNotice = nil
+    }
+
+    func saveSelectedAgentEdits() {
+        guard let id = selectedEditableAgentId else { return }
+
+        let nameTrimmed = editableAgentName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let finalName = nameTrimmed.isEmpty ? (discoveredAgents.first(where: { $0.id == id })?.name ?? id) : nameTrimmed
+        let emojiTrimmed = editableAgentEmoji.trimmingCharacters(in: .whitespacesAndNewlines)
+        let finalEmoji = emojiTrimmed.isEmpty ? "🤖" : emojiTrimmed
+
+        agentEdits[id] = OnboardingAgentEdit(name: finalName, emoji: finalEmoji)
+        if let idx = discoveredAgents.firstIndex(where: { $0.id == id }) {
+            discoveredAgents[idx].name = finalName
+            discoveredAgents[idx].emoji = finalEmoji
+        }
+
+        if id == mainAgent?.id {
+            agentName = finalName
+            agentEmoji = finalEmoji
+        }
+
+        agentSaveNotice = "Saved"
+    }
+
+    func effectiveName(for agent: Agent) -> String {
+        agentEdits[agent.id]?.name ?? agent.name
+    }
+
+    func effectiveEmoji(for agent: Agent) -> String {
+        agentEdits[agent.id]?.emoji ?? agent.emoji
     }
 }

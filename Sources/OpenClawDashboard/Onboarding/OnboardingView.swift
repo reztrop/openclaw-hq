@@ -358,130 +358,146 @@ struct AgentDiscoveryStep: View {
     private let commonEmojis = ["🤖", "🧠", "🔍", "🧩", "📐", "🗺️", "⚡", "🎯", "🚀", "💡", "🔮", "🌟"]
 
     var body: some View {
-        VStack(spacing: 24) {
-            VStack(spacing: 8) {
-                Text("Your Agents")
-                    .font(.title2)
-                    .fontWeight(.bold)
-                    .foregroundColor(.white)
-                Text("We found these agents on your gateway")
-                    .foregroundColor(Theme.textSecondary)
-            }
-            .padding(.top, 24)
-
-            if vm.isLoadingAgents {
-                ProgressView("Discovering agents…")
-                    .tint(Theme.jarvisBlue)
-                    .foregroundColor(Theme.textSecondary)
-            } else if let err = vm.agentDiscoveryError {
+        ScrollView {
+            VStack(spacing: 24) {
                 VStack(spacing: 8) {
-                    Label(err, systemImage: "exclamationmark.triangle")
-                        .foregroundColor(.red)
-                    Button("Retry") { Task { await vm.discoverAgents() } }
-                        .buttonStyle(.bordered)
+                    Text("Your Agents")
+                        .font(.title2)
+                        .fontWeight(.bold)
+                        .foregroundColor(.white)
+                    Text("Select an agent, edit details, then save")
+                        .foregroundColor(Theme.textSecondary)
                 }
-            } else {
-                // Agent list
-                VStack(spacing: 8) {
-                    ForEach(vm.discoveredAgents) { agent in
-                        agentRow(agent)
+                .padding(.top, 24)
+
+                if vm.isLoadingAgents {
+                    ProgressView("Discovering agents…")
+                        .tint(Theme.jarvisBlue)
+                        .foregroundColor(Theme.textSecondary)
+                } else if let err = vm.agentDiscoveryError {
+                    VStack(spacing: 8) {
+                        Label(err, systemImage: "exclamationmark.triangle")
+                            .foregroundColor(.red)
+                        Button("Retry") { Task { await vm.discoverAgents() } }
+                            .buttonStyle(.bordered)
                     }
-                }
-                .frame(maxWidth: 440)
-
-                // Main agent name/emoji editor
-                if let _ = vm.mainAgent {
-                    Divider().opacity(0.3)
-
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("Customize your main agent (optional)")
-                            .font(.subheadline)
-                            .foregroundColor(Theme.textSecondary)
-
-                        HStack(spacing: 12) {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("Name").font(.caption).foregroundColor(Theme.textMuted)
-                                TextField("Agent name", text: $vm.agentName)
-                                    .textFieldStyle(.roundedBorder)
-                            }
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("Emoji").font(.caption).foregroundColor(Theme.textMuted)
-                                TextField("Emoji", text: $vm.agentEmoji)
-                                    .textFieldStyle(.roundedBorder)
-                                    .frame(width: 64)
-                            }
-                        }
-
-                        // Emoji quick-pick
-                        LazyVGrid(columns: Array(repeating: .init(.fixed(36)), count: 12), spacing: 4) {
-                            ForEach(commonEmojis, id: \.self) { e in
-                                Button(e) { vm.agentEmoji = e }
-                                    .font(.title3)
-                                    .frame(width: 32, height: 32)
-                                    .background(vm.agentEmoji == e ? Theme.jarvisBlue.opacity(0.3) : Color.clear)
-                                    .clipShape(RoundedRectangle(cornerRadius: 6))
-                                    .buttonStyle(.plain)
-                            }
+                } else {
+                    VStack(spacing: 8) {
+                        ForEach(vm.discoveredAgents) { agent in
+                            agentRow(agent)
                         }
                     }
-                    .frame(maxWidth: 440, minHeight: 200)
-                    .padding(16)
-                    .background(Theme.darkSurface)
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                    .frame(maxWidth: 460)
+
+                    if vm.selectedEditableAgentId != nil {
+                        Divider().opacity(0.3)
+
+                        VStack(alignment: .leading, spacing: 12) {
+                            Text("Edit selected agent")
+                                .font(.subheadline)
+                                .foregroundColor(Theme.textSecondary)
+
+                            HStack(spacing: 12) {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text("Name").font(.caption).foregroundColor(Theme.textMuted)
+                                    TextField("Agent name", text: $vm.editableAgentName)
+                                        .textFieldStyle(.roundedBorder)
+                                }
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text("Emoji").font(.caption).foregroundColor(Theme.textMuted)
+                                    TextField("Emoji", text: $vm.editableAgentEmoji)
+                                        .textFieldStyle(.roundedBorder)
+                                        .frame(width: 64)
+                                }
+                            }
+
+                            LazyVGrid(columns: Array(repeating: .init(.fixed(36)), count: 12), spacing: 4) {
+                                ForEach(commonEmojis, id: \.self) { e in
+                                    Button(e) { vm.editableAgentEmoji = e }
+                                        .font(.title3)
+                                        .frame(width: 32, height: 32)
+                                        .background(vm.editableAgentEmoji == e ? Theme.jarvisBlue.opacity(0.3) : Color.clear)
+                                        .clipShape(RoundedRectangle(cornerRadius: 6))
+                                        .buttonStyle(.plain)
+                                }
+                            }
+
+                            HStack {
+                                Button("Save Agent Changes") {
+                                    vm.saveSelectedAgentEdits()
+                                }
+                                .buttonStyle(.borderedProminent)
+                                .tint(Theme.jarvisBlue)
+
+                                if let notice = vm.agentSaveNotice {
+                                    Label(notice, systemImage: "checkmark.circle.fill")
+                                        .font(.caption)
+                                        .foregroundColor(.green)
+                                }
+                            }
+                        }
+                        .frame(maxWidth: 460)
+                        .padding(16)
+                        .background(Theme.darkSurface)
+                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                    }
                 }
-            }
 
-            Spacer()
-
-            HStack {
-                Button("Back") { vm.goBack() }
-                    .buttonStyle(.plain)
-                    .foregroundColor(Theme.textMuted)
-                Spacer()
-                Button("Skip for now") { vm.goNext() }
-                    .buttonStyle(.plain)
-                    .foregroundColor(Theme.textMuted)
-                Button("Continue →") { vm.goNext() }
-                    .buttonStyle(.borderedProminent)
-                    .tint(Theme.jarvisBlue)
+                HStack {
+                    Button("Back") { vm.goBack() }
+                        .buttonStyle(.plain)
+                        .foregroundColor(Theme.textMuted)
+                    Spacer()
+                    Button("Skip for now") { vm.goNext() }
+                        .buttonStyle(.plain)
+                        .foregroundColor(Theme.textMuted)
+                    Button("Continue →") { vm.goNext() }
+                        .buttonStyle(.borderedProminent)
+                        .tint(Theme.jarvisBlue)
+                }
+                .frame(maxWidth: 460)
+                .padding(.bottom, 24)
             }
-            .frame(maxWidth: 440)
-            .padding(.bottom, 32)
+            .padding(.horizontal, 48)
         }
-        .padding(.horizontal, 48)
         .task { await vm.discoverAgents() }
     }
 
     private func agentRow(_ agent: Agent) -> some View {
-        HStack(spacing: 12) {
-            Text(agent.emoji).font(.title2)
-            VStack(alignment: .leading, spacing: 2) {
-                HStack(spacing: 6) {
-                    Text(agent.name)
-                        .fontWeight(.medium)
-                        .foregroundColor(.white)
-                    if agent.isDefaultAgent {
-                        Text("MAIN")
-                            .font(.system(size: 9, weight: .bold))
-                            .foregroundColor(Theme.jarvisBlue)
-                            .padding(.horizontal, 5)
-                            .padding(.vertical, 2)
-                            .background(Theme.jarvisBlue.opacity(0.2))
-                            .clipShape(Capsule())
+        Button {
+            vm.selectAgentForEditing(agentId: agent.id)
+        } label: {
+            HStack(spacing: 12) {
+                Text(vm.effectiveEmoji(for: agent)).font(.title2)
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack(spacing: 6) {
+                        Text(vm.effectiveName(for: agent))
+                            .fontWeight(.medium)
+                            .foregroundColor(.white)
+                        if agent.isDefaultAgent {
+                            Text("MAIN")
+                                .font(.system(size: 9, weight: .bold))
+                                .foregroundColor(Theme.jarvisBlue)
+                                .padding(.horizontal, 5)
+                                .padding(.vertical, 2)
+                                .background(Theme.jarvisBlue.opacity(0.2))
+                                .clipShape(Capsule())
+                        }
                     }
+                    Text(agent.id)
+                        .font(.caption)
+                        .foregroundColor(Theme.textMuted)
+                        .monospaced()
                 }
-                Text(agent.id)
-                    .font(.caption)
-                    .foregroundColor(Theme.textMuted)
-                    .monospaced()
+                Spacer()
+                Image(systemName: vm.selectedEditableAgentId == agent.id ? "pencil.circle.fill" : "checkmark.circle.fill")
+                    .foregroundColor(vm.selectedEditableAgentId == agent.id ? Theme.jarvisBlue : .green)
             }
-            Spacer()
-            Image(systemName: "checkmark.circle.fill")
-                .foregroundColor(.green)
+            .padding(12)
+            .background(vm.selectedEditableAgentId == agent.id ? Theme.darkAccent : Theme.darkSurface)
+            .clipShape(RoundedRectangle(cornerRadius: 10))
         }
-        .padding(12)
-        .background(Theme.darkSurface)
-        .clipShape(RoundedRectangle(cornerRadius: 10))
+        .buttonStyle(.plain)
     }
 }
 
