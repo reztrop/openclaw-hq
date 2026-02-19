@@ -480,12 +480,6 @@ struct ChatView: View {
                     } label: {
                         Label("Add Files", systemImage: "paperclip")
                     }
-
-                    Button {
-                        startProjectPlanningMode()
-                    } label: {
-                        Label("Start Project Planning", systemImage: "sparkles")
-                    }
                 } label: {
                     Image(systemName: "plus")
                         .font(.headline)
@@ -683,18 +677,6 @@ struct ChatView: View {
             if let model = agent.model, !model.isEmpty { return model }
         }
         return "Agent Default"
-    }
-
-    private func startProjectPlanningMode() {
-        let jarvis = preferredJarvisId()
-        chatVM.startNewChat(defaultAgentId: jarvis)
-        chatVM.selectedAgentId = jarvis
-        let seed = "[project] We are starting a new project. Ask clarifying questions until scope is complete. When the scope is fully defined, respond with [project-ready] and a concise scoped summary.\n\nProject brief: "
-        if chatVM.draftMessage.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            chatVM.draftMessage = seed
-        } else if !chatVM.draftMessage.lowercased().contains("[project]") {
-            chatVM.draftMessage = "\(seed)\(chatVM.draftMessage)"
-        }
     }
 
     private func archiveConversationFromRow(_ conversationId: String) {
