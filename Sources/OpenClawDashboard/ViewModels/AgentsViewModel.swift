@@ -210,7 +210,9 @@ class AgentsViewModel: ObservableObject {
         identityContent: String?,
         soulContent: String? = nil,
         canCommunicateWithAgents: Bool = true,
-        bootOnStart: Bool = true
+        bootOnStart: Bool = true,
+        activeAvatarPath: String? = nil,
+        idleAvatarPath: String? = nil
     ) async throws {
         let home = FileManager.default.homeDirectoryForCurrentUser.path
         let normalizedId = name.lowercased().replacingOccurrences(of: " ", with: "-")
@@ -231,6 +233,7 @@ class AgentsViewModel: ObservableObject {
         }
 
         saveLocalAgentOverride(agentId: agentId) { config in
+            config.emoji = emoji
             config.canCommunicateWithAgents = canCommunicateWithAgents
         }
 
@@ -242,6 +245,13 @@ class AgentsViewModel: ObservableObject {
             identityContent: identityContent,
             soulContent: soulContent,
             canCommunicateWithAgents: canCommunicateWithAgents
+        )
+
+        // Persist selected avatars (if any) into the dashboard avatar directory.
+        try copySelectedAvatars(
+            displayName: name,
+            activeAvatarPath: activeAvatarPath,
+            idleAvatarPath: idleAvatarPath
         )
 
         await refreshAgents()
@@ -269,12 +279,12 @@ class AgentsViewModel: ObservableObject {
 
         do {
             _ = try await gatewayService.sendAgentCommand(coordinatorId, message: bootRequest)
-            return
         } catch {
             print("[AgentsVM] Coordinator boot request failed (\(coordinatorId)): \(error)")
         }
 
-        // Fallback: directly warm up the new agent if coordinator routing fails.
+        // Always directly warm up the new agent so initialization is guaranteed even
+        // if Jarvis does not immediately delegate.
         let directWarmup = """
         Quick startup check: introduce yourself in one line and confirm you are online, initialized, and ready to receive tasks.
         """
@@ -526,7 +536,9 @@ class AgentsViewModel: ObservableObject {
         emoji: String? = nil,
         model: String? = nil,
         identityContent: String? = nil,
-        canCommunicateWithAgents: Bool? = nil
+        canCommunicateWithAgents: Bool? = nil,
+        activeAvatarPath: String? = nil,
+        idleAvatarPath: String? = nil
     ) async throws {
         let trimmedName = name?.trimmingCharacters(in: .whitespacesAndNewlines)
         let finalName = (trimmedName?.isEmpty == true) ? nil : trimmedName
@@ -559,6 +571,18 @@ class AgentsViewModel: ObservableObject {
             }
         }
 
+        // Persist avatar updates into the dashboard avatar directory.
+        let effectiveName: String = {
+            if let finalName, !finalName.isEmpty { return finalName }
+            return agents.first(where: { $0.id == agentId })?.name ?? agentId
+        }()
+        try copySelectedAvatars(
+            displayName: effectiveName,
+            activeAvatarPath: activeAvatarPath,
+            idleAvatarPath: idleAvatarPath
+        )
+        AvatarService.shared.clearCache()
+
         // Update local state immediately
         if let idx = agents.firstIndex(where: { $0.id == agentId }) {
             if let name = finalName { agents[idx].name = name }
@@ -570,6 +594,33 @@ class AgentsViewModel: ObservableObject {
             if let canCommunicateWithAgents {
                 agents[idx].canCommunicateWithAgents = canCommunicateWithAgents
             }
+        }
+    }
+
+    private func copySelectedAvatars(
+        displayName: String,
+        activeAvatarPath: String?,
+        idleAvatarPath: String?
+    ) throws {
+        let fm = FileManager.default
+        try fm.createDirectory(atPath: Constants.avatarDirectory, withIntermediateDirectories: true, attributes: nil)
+
+        func copyAvatar(from sourcePath: String, to destinationPath: String) throws {
+            let sourceURL = URL(fileURLWithPath: sourcePath)
+            let destinationURL = URL(fileURLWithPath: destinationPath)
+            if fm.fileExists(atPath: destinationURL.path) {
+                try fm.removeItem(at: destinationURL)
+            }
+            try fm.copyItem(at: sourceURL, to: destinationURL)
+        }
+
+        if let activeAvatarPath, !activeAvatarPath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            let activeDest = "\(Constants.avatarDirectory)/\(displayName)_active.png"
+            try copyAvatar(from: activeAvatarPath, to: activeDest)
+        }
+        if let idleAvatarPath, !idleAvatarPath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            let idleDest = "\(Constants.avatarDirectory)/\(displayName)_idle.png"
+            try copyAvatar(from: idleAvatarPath, to: idleDest)
         }
     }
 

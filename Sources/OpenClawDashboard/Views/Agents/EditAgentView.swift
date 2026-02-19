@@ -186,7 +186,9 @@ struct EditAgentView: View {
                 emoji: agentEmoji,
                 model: selectedModelId,
                 identityContent: identityContent.isEmpty ? nil : identityContent,
-                canCommunicateWithAgents: canCommunicateWithAgents
+                canCommunicateWithAgents: canCommunicateWithAgents,
+                activeAvatarPath: activeImagePath,
+                idleAvatarPath: idleImagePath
             )
             withAnimation { savedConfirmation = true }
             Task {

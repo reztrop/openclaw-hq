@@ -274,7 +274,9 @@ struct CreateAgentForm: View {
                 identityContent: identityContent.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : identityContent,
                 soulContent: soulContent.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : soulContent,
                 canCommunicateWithAgents: canCommunicateWithAgents,
-                bootOnStart: bootOnStart
+                bootOnStart: bootOnStart,
+                activeAvatarPath: activeImagePath,
+                idleAvatarPath: idleImagePath
             )
             dismiss()
         } catch {
