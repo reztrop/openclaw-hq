@@ -378,6 +378,12 @@ class AgentsViewModel: ObservableObject {
         let hasSoul     = soulContent.map { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty } ?? false
         let roleText    = hasIdentity ? identityContent! : "Update this with a description of this agent's role and responsibilities."
         let soulText    = hasSoul ? soulContent! : "**Do the job well.** Quality over speed. Correctness over convenience.\n\n**Be honest about what you don't know.** Uncertainty labeled as uncertainty is useful. Uncertainty presented as fact is dangerous.\n\n**Stay in your lane.** Do not take actions outside your defined role without explicit instruction."
+        let inferredTitle = inferThemedTitle(
+            agentName: name,
+            identityText: identityContent,
+            soulText: soulContent,
+            isDefaultAgent: false
+        )
 
         // IDENTITY.md
         let identityFile = """
@@ -569,7 +575,7 @@ class AgentsViewModel: ObservableObject {
         _ = try? await gatewayService.setAgentFile(agentId: agentId, name: "TOOLS.md", content: toolsFile)
 
         // TITLE.md
-        let titleFile = "\(defaultTitleForAgent(name: name))\n"
+        let titleFile = "\(inferredTitle)\n"
         _ = try? await gatewayService.setAgentFile(agentId: agentId, name: "TITLE.md", content: titleFile)
 
         // MEMORY.md
@@ -744,7 +750,7 @@ class AgentsViewModel: ObservableObject {
             "BOOTSTRAP.md": "# BOOTSTRAP.md\n",
             "MEMORY.md": "# MEMORY.md\n",
             "HEARTBEAT.md": "# HEARTBEAT.md\n",
-            "TITLE.md": "\(defaultTitleForAgent(name: name))\n"
+            "TITLE.md": "\(inferThemedTitle(agentName: name, identityText: identityContent, soulText: soulContent, isDefaultAgent: false))\n"
         ]
 
         for file in expected {
@@ -785,17 +791,18 @@ class AgentsViewModel: ObservableObject {
     }
 
     private func resolveRoleTitle(agentId: String, agentName: String, isDefaultAgent: Bool) -> String {
-        if let workspaceTitle = readTitleFromWorkspace(agentId: agentId), !workspaceTitle.isEmpty {
+        if let workspaceTitle = readTitleFromWorkspace(agentId: agentId), !workspaceTitle.isEmpty,
+           workspaceTitle.lowercased() != "specialist agent" && workspaceTitle.lowercased() != "the specialist" {
             return workspaceTitle
         }
-        if isDefaultAgent {
-            return "Chief Orchestrator"
-        }
-        let themed = Theme.agentRole(for: agentName)
-        if themed != "Agent" {
-            return themed
-        }
-        return defaultTitleForAgent(name: agentName)
+        let identityText = readWorkspaceFile(agentId: agentId, fileName: "IDENTITY.md")
+        let soulText = readWorkspaceFile(agentId: agentId, fileName: "SOUL.md")
+        return inferThemedTitle(
+            agentName: agentName,
+            identityText: identityText,
+            soulText: soulText,
+            isDefaultAgent: isDefaultAgent
+        )
     }
 
     private func readTitleFromWorkspace(agentId: String) -> String? {
@@ -810,15 +817,60 @@ class AgentsViewModel: ObservableObject {
             .first(where: { !$0.isEmpty })
     }
 
+    private func readWorkspaceFile(agentId: String, fileName: String) -> String? {
+        let home = FileManager.default.homeDirectoryForCurrentUser.path
+        let path = "\(home)/.openclaw/workspace/agents/\(agentId.lowercased())/\(fileName)"
+        return try? String(contentsOfFile: path, encoding: .utf8)
+    }
+
     private func defaultTitleForAgent(name: String) -> String {
         switch name.lowercased() {
-        case "jarvis": return "Chief Orchestrator"
-        case "atlas": return "Research Strategist"
-        case "matrix": return "Lead Engineer"
-        case "prism": return "Quality and Risk Analyst"
-        case "scope": return "Program Architect"
-        default: return "Specialist Agent"
+        case "jarvis": return "The Conductor"
+        case "atlas": return "The Scholar"
+        case "matrix": return "The Tinkerer"
+        case "prism": return "The Skeptic"
+        case "scope": return "The Architect"
+        default: return "The Specialist"
         }
+    }
+
+    private func inferThemedTitle(
+        agentName: String,
+        identityText: String?,
+        soulText: String?,
+        isDefaultAgent: Bool
+    ) -> String {
+        if isDefaultAgent { return "The Conductor" }
+
+        let canonical = Theme.agentRole(for: agentName)
+        if canonical != "Agent" { return canonical }
+
+        let text = "\(identityText ?? "") \(soulText ?? "")".lowercased()
+        if text.contains("security") || text.contains("cyber") || text.contains("network") || text.contains("firewall") || text.contains("incident") || text.contains("vulnerability") {
+            return "The Sentinel"
+        }
+        if text.contains("design") || text.contains("ui") || text.contains("ux") || text.contains("visual") || text.contains("brand") || text.contains("creative") {
+            return "The Visionary"
+        }
+        if text.contains("quality") || text.contains("test") || text.contains("qa") || text.contains("audit") || text.contains("verification") {
+            return "The Examiner"
+        }
+        if text.contains("plan") || text.contains("roadmap") || text.contains("product") || text.contains("scope") || text.contains("program") {
+            return "The Strategist"
+        }
+        if text.contains("research") || text.contains("analysis") || text.contains("data") || text.contains("insight") || text.contains("investigate") {
+            return "The Analyst"
+        }
+        if text.contains("build") || text.contains("engineer") || text.contains("code") || text.contains("implementation") || text.contains("architecture") || text.contains("api") {
+            return "The Builder"
+        }
+        if text.contains("operations") || text.contains("automation") || text.contains("workflow") || text.contains("execution") {
+            return "The Operator"
+        }
+        if text.contains("documentation") || text.contains("writer") || text.contains("content") || text.contains("communication") {
+            return "The Scribe"
+        }
+        return defaultTitleForAgent(name: agentName)
     }
 
     private func saveLocalAgentOverride(agentId: String, update: (inout LocalAgentConfig) -> Void) {
