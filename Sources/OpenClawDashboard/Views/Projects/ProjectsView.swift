@@ -61,7 +61,7 @@ struct ProjectsView: View {
                     }
                 }
                 .padding(24)
-                .frame(maxWidth: 980, alignment: .leading)
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
         } else {
             VStack(spacing: 12) {
