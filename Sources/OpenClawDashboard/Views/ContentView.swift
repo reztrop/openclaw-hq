@@ -177,6 +177,9 @@ struct ContentView: View {
             ChatView(chatViewModel: appViewModel.chatViewModel)
                 .environmentObject(appViewModel)
                 .environmentObject(appViewModel.agentsViewModel)
+        case .projects:
+            ProjectsView()
+                .environmentObject(appViewModel.projectsViewModel)
         case .tasks:
             TasksView()
         case .usage:

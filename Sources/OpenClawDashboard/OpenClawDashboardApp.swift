@@ -12,6 +12,7 @@ struct OpenClawDashboardApp: App {
                 .environmentObject(appViewModel.gatewayService)
                 .environmentObject(appViewModel.taskService)
                 .environmentObject(appViewModel.agentsViewModel)
+                .environmentObject(appViewModel.projectsViewModel)
                 .environmentObject(appViewModel.tasksViewModel)
                 .environmentObject(appViewModel.usageViewModel)
                 .environmentObject(appViewModel.gatewayStatusViewModel)
@@ -35,12 +36,14 @@ struct OpenClawDashboardApp: App {
                     .keyboardShortcut("1", modifiers: .command)
                 Button("Chat") { appViewModel.selectedTab = .chat }
                     .keyboardShortcut("2", modifiers: .command)
-                Button("Tasks") { appViewModel.selectedTab = .tasks }
+                Button("Projects") { appViewModel.selectedTab = .projects }
                     .keyboardShortcut("3", modifiers: .command)
-                Button("Usage") { appViewModel.selectedTab = .usage }
+                Button("Tasks") { appViewModel.selectedTab = .tasks }
                     .keyboardShortcut("4", modifiers: .command)
-                Button("Activity") { appViewModel.selectedTab = .activity }
+                Button("Usage") { appViewModel.selectedTab = .usage }
                     .keyboardShortcut("5", modifiers: .command)
+                Button("Activity") { appViewModel.selectedTab = .activity }
+                    .keyboardShortcut("6", modifiers: .command)
             }
 
             // File menu — new task
@@ -64,7 +67,7 @@ struct OpenClawDashboardApp: App {
                             await appViewModel.chatViewModel.refresh(agentIds: appViewModel.agentsViewModel.agents.map { $0.id })
                         case .usage:
                             await appViewModel.usageViewModel.fetchUsageData()
-                        case .activity, .tasks, .settings:
+                        case .activity, .tasks, .settings, .projects:
                             break
                         }
                     }

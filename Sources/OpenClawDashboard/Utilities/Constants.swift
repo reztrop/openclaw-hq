@@ -8,6 +8,7 @@ enum Constants {
 
     static let avatarDirectory = NSString(string: "~/.openclaw/workspace/avatars/avatar_pictures").expandingTildeInPath
     static let tasksFilePath = NSString(string: "~/.openclaw/workspace/tasks.json").expandingTildeInPath
+    static let projectsFilePath = NSString(string: "~/.openclaw/workspace/projects.json").expandingTildeInPath
     static let openclawConfigPath = NSString(string: "~/.openclaw/openclaw.json").expandingTildeInPath
 
     static let appName = "OpenClaw HQ"
