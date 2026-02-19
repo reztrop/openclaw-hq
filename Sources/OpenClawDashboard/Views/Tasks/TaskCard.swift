@@ -4,6 +4,7 @@ struct TaskCard: View {
     let task: TaskItem
     let onView: (() -> Void)?
     let showPausedOverlay: Bool
+    let showVerifiedOverlay: Bool
     @State private var isHovered = false
 
     var body: some View {
@@ -93,17 +94,30 @@ struct TaskCard: View {
             isHovered = hovering
         }
         .overlay {
-            if showPausedOverlay {
+            if showPausedOverlay || showVerifiedOverlay {
                 ZStack {
                     RoundedRectangle(cornerRadius: 10)
-                        .fill(Color.black.opacity(0.45))
-                    Text("PAUSED")
-                        .font(.caption.bold())
-                        .foregroundColor(.white)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 4)
-                        .background(Theme.statusOffline.opacity(0.8))
-                        .clipShape(Capsule())
+                        .fill(Color.black.opacity(0.42))
+                    VStack(spacing: 6) {
+                        if showPausedOverlay {
+                            Text("PAUSED")
+                                .font(.caption.bold())
+                                .foregroundColor(.white)
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 4)
+                                .background(Theme.statusOffline.opacity(0.8))
+                                .clipShape(Capsule())
+                        }
+                        if showVerifiedOverlay {
+                            Text("VERIFIED")
+                                .font(.caption.bold())
+                                .foregroundColor(.white)
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 4)
+                                .background(Theme.statusOnline.opacity(0.85))
+                                .clipShape(Capsule())
+                        }
+                    }
                 }
             }
         }

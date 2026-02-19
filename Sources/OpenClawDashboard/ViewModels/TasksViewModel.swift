@@ -11,6 +11,7 @@ class TasksViewModel: ObservableObject {
     @Published var isEditing = false
     @Published var editingTask: TaskItem?
     @Published var showingNewTask = false
+    var onTaskMovedToDone: ((TaskItem) -> Void)?
 
     private let taskService: TaskService
     private var cancellables = Set<AnyCancellable>()
@@ -107,7 +108,11 @@ class TasksViewModel: ObservableObject {
         taskService.moveTask(taskId, to: status)
         objectWillChange.send()
 
-        let started = status == .inProgress ? taskService.tasks.first(where: { $0.id == taskId }) : nil
+        let updatedTask = taskService.tasks.first(where: { $0.id == taskId })
+        if status == .done, let updatedTask {
+            onTaskMovedToDone?(updatedTask)
+        }
+        let started = status == .inProgress ? updatedTask : nil
         return TransitionOutcome(startedTask: started, displacedTask: displaced)
     }
 

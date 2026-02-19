@@ -55,6 +55,14 @@ class AppViewModel: ObservableObject {
             guard let self else { return }
             self.projectsViewModel.registerProjectScopeReady(conversationId: sessionKey, assistantResponse: assistantResponse)
         }
+        chatViewModel.onProjectChatUserMessage = { [weak self] sessionKey, message in
+            guard let self else { return }
+            self.projectsViewModel.handleProjectChatUserMessage(conversationId: sessionKey, message: message)
+        }
+        tasksViewModel.onTaskMovedToDone = { [weak self] task in
+            guard let self else { return }
+            self.projectsViewModel.handleTaskMovedToDone(task)
+        }
 
         // Set up notifications
         notificationService = NotificationService(settingsService: settingsService, gatewayService: gatewayService)

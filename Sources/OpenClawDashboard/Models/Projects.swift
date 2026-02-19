@@ -154,6 +154,8 @@ struct ProjectRecord: Codable, Identifiable, Hashable {
     var updatedAt: Date
     var approvedStages: [ProductStage]
     var furthestStageReached: ProductStage
+    var reviewRound: Int
+    var reviewStatus: ProjectReviewStatus
     var blueprint: ProductBlueprint
 
     static func makeNew(title: String, conversationId: String? = nil, overview: String? = nil) -> ProjectRecord {
@@ -170,6 +172,8 @@ struct ProjectRecord: Codable, Identifiable, Hashable {
             updatedAt: Date(),
             approvedStages: [],
             furthestStageReached: .product,
+            reviewRound: 0,
+            reviewStatus: .notStarted,
             blueprint: blueprint
         )
     }
@@ -182,6 +186,8 @@ struct ProjectRecord: Codable, Identifiable, Hashable {
         case updatedAt
         case approvedStages
         case furthestStageReached
+        case reviewRound
+        case reviewStatus
         case blueprint
     }
 
@@ -193,6 +199,8 @@ struct ProjectRecord: Codable, Identifiable, Hashable {
         updatedAt: Date,
         approvedStages: [ProductStage],
         furthestStageReached: ProductStage,
+        reviewRound: Int,
+        reviewStatus: ProjectReviewStatus,
         blueprint: ProductBlueprint
     ) {
         self.id = id
@@ -202,6 +210,8 @@ struct ProjectRecord: Codable, Identifiable, Hashable {
         self.updatedAt = updatedAt
         self.approvedStages = approvedStages
         self.furthestStageReached = furthestStageReached
+        self.reviewRound = reviewRound
+        self.reviewStatus = reviewStatus
         self.blueprint = blueprint
     }
 
@@ -215,7 +225,16 @@ struct ProjectRecord: Codable, Identifiable, Hashable {
         approvedStages = try c.decodeIfPresent([ProductStage].self, forKey: .approvedStages) ?? []
         blueprint = try c.decode(ProductBlueprint.self, forKey: .blueprint)
         furthestStageReached = try c.decodeIfPresent(ProductStage.self, forKey: .furthestStageReached) ?? blueprint.activeStage
+        reviewRound = try c.decodeIfPresent(Int.self, forKey: .reviewRound) ?? 0
+        reviewStatus = try c.decodeIfPresent(ProjectReviewStatus.self, forKey: .reviewStatus) ?? .notStarted
     }
+}
+
+enum ProjectReviewStatus: String, Codable, Hashable {
+    case notStarted
+    case inReview
+    case waitingFinalApproval
+    case finalApproved
 }
 
 struct PendingProjectPlanning: Codable, Hashable {

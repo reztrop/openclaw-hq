@@ -100,7 +100,11 @@ class TaskService: ObservableObject {
         scheduledFor: Date? = nil,
         projectId: String? = nil,
         projectName: String? = nil,
-        projectColorHex: String? = nil
+        projectColorHex: String? = nil,
+        isVerificationTask: Bool = false,
+        verificationRound: Int? = nil,
+        isVerified: Bool = false,
+        isArchived: Bool = false
     ) -> TaskItem {
         let task = TaskItem(
             title: title,
@@ -111,7 +115,11 @@ class TaskService: ObservableObject {
             scheduledFor: scheduledFor,
             projectId: projectId,
             projectName: projectName,
-            projectColorHex: projectColorHex
+            projectColorHex: projectColorHex,
+            isVerificationTask: isVerificationTask,
+            verificationRound: verificationRound,
+            isVerified: isVerified,
+            isArchived: isArchived
         )
         tasks.append(task)
         saveTasks()
@@ -138,15 +146,42 @@ class TaskService: ObservableObject {
             tasks[index].updatedAt = Date()
             if status == .done {
                 tasks[index].completedAt = Date()
+                if tasks[index].isVerificationTask {
+                    tasks[index].isVerified = true
+                }
+            } else {
+                tasks[index].completedAt = nil
+                if tasks[index].isVerificationTask {
+                    tasks[index].isVerified = false
+                }
             }
+            saveTasks()
+        }
+    }
+
+    func archiveTasks(for projectId: String) {
+        var mutated = false
+        for idx in tasks.indices {
+            if tasks[idx].projectId == projectId, !tasks[idx].isArchived {
+                tasks[idx].isArchived = true
+                tasks[idx].updatedAt = Date()
+                mutated = true
+            }
+        }
+        if mutated {
             saveTasks()
         }
     }
 
     func tasksForStatus(_ status: TaskStatus) -> [TaskItem] {
         tasks
-            .filter { $0.status == status }
+            .filter { $0.status == status && !$0.isArchived }
             .sorted {
+                if status == .done {
+                    let lhsVerified = $0.isVerificationTask && $0.isVerified
+                    let rhsVerified = $1.isVerificationTask && $1.isVerified
+                    if lhsVerified != rhsVerified { return lhsVerified && !rhsVerified }
+                }
                 let lhsPriority = Self.priorityRank($0.priority)
                 let rhsPriority = Self.priorityRank($1.priority)
                 if lhsPriority != rhsPriority { return lhsPriority < rhsPriority }

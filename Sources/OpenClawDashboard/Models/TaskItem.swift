@@ -15,6 +15,10 @@ struct TaskItem: Identifiable, Codable, Hashable, Transferable {
     var projectId: String?
     var projectName: String?
     var projectColorHex: String?
+    var isVerificationTask: Bool
+    var verificationRound: Int?
+    var isVerified: Bool
+    var isArchived: Bool
 
     init(
         id: UUID = UUID(),
@@ -29,7 +33,11 @@ struct TaskItem: Identifiable, Codable, Hashable, Transferable {
         completedAt: Date? = nil,
         projectId: String? = nil,
         projectName: String? = nil,
-        projectColorHex: String? = nil
+        projectColorHex: String? = nil,
+        isVerificationTask: Bool = false,
+        verificationRound: Int? = nil,
+        isVerified: Bool = false,
+        isArchived: Bool = false
     ) {
         self.id = id
         self.title = title
@@ -44,6 +52,10 @@ struct TaskItem: Identifiable, Codable, Hashable, Transferable {
         self.projectId = projectId
         self.projectName = projectName
         self.projectColorHex = projectColorHex
+        self.isVerificationTask = isVerificationTask
+        self.verificationRound = verificationRound
+        self.isVerified = isVerified
+        self.isArchived = isArchived
     }
 
     // MARK: - Transferable
@@ -65,6 +77,10 @@ struct TaskItem: Identifiable, Codable, Hashable, Transferable {
         case projectId
         case projectName
         case projectColorHex
+        case isVerificationTask
+        case verificationRound
+        case isVerified
+        case isArchived
     }
 
     init(from decoder: Decoder) throws {
@@ -82,6 +98,10 @@ struct TaskItem: Identifiable, Codable, Hashable, Transferable {
         projectId = try c.decodeIfPresent(String.self, forKey: .projectId)
         projectName = try c.decodeIfPresent(String.self, forKey: .projectName)
         projectColorHex = try c.decodeIfPresent(String.self, forKey: .projectColorHex)
+        isVerificationTask = try c.decodeIfPresent(Bool.self, forKey: .isVerificationTask) ?? false
+        verificationRound = try c.decodeIfPresent(Int.self, forKey: .verificationRound)
+        isVerified = try c.decodeIfPresent(Bool.self, forKey: .isVerified) ?? false
+        isArchived = try c.decodeIfPresent(Bool.self, forKey: .isArchived) ?? false
     }
 }
 

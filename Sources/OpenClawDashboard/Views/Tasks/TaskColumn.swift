@@ -46,7 +46,8 @@ struct TaskColumn: View {
                         TaskCard(
                             task: task,
                             onView: { onView(task) },
-                            showPausedOverlay: isExecutionPaused && status == .inProgress
+                            showPausedOverlay: isExecutionPaused && status == .inProgress,
+                            showVerifiedOverlay: status == .done && task.isVerificationTask && task.isVerified
                         )
                             .draggable(task)
                             .contextMenu {
