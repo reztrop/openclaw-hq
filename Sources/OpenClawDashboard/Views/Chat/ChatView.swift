@@ -477,8 +477,12 @@ struct ChatView: View {
                 Button {
                     showImporter = true
                 } label: {
-                    Label("Add Files", systemImage: "paperclip")
-                        .font(.caption)
+                    HStack(spacing: 6) {
+                        Image(systemName: "paperclip")
+                            .font(.caption)
+                        Text("Add Files")
+                            .font(.caption)
+                    }
                         .foregroundColor(Theme.textMuted)
                 }
                 .buttonStyle(.plain)
