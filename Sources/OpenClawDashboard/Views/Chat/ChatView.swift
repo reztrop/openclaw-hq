@@ -474,17 +474,14 @@ struct ChatView: View {
             }
 
             HStack(spacing: 10) {
-                Menu {
-                    Button {
-                        showImporter = true
-                    } label: {
-                        Label("Add Files", systemImage: "paperclip")
-                    }
+                Button {
+                    showImporter = true
                 } label: {
-                    Image(systemName: "plus")
-                        .font(.headline)
+                    Label("Add Files", systemImage: "paperclip")
+                        .font(.caption)
+                        .foregroundColor(Theme.textMuted)
                 }
-                .menuStyle(.borderlessButton)
+                .buttonStyle(.plain)
                 .padding(.horizontal, 8)
                 .padding(.vertical, 6)
                 .background(Theme.darkSurface)
