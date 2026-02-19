@@ -422,6 +422,17 @@ struct AgentDiscoveryStep: View {
                                 }
                             }
 
+                            Toggle(isOn: $vm.editableAgentCanCommunicateWithAgents) {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("Allow Agent-to-Agent Collaboration")
+                                        .foregroundColor(.white)
+                                    Text("When enabled, this agent may coordinate with other agents via Jarvis.")
+                                        .font(.caption)
+                                        .foregroundColor(Theme.textMuted)
+                                }
+                            }
+                            .toggleStyle(.switch)
+
                             HStack {
                                 Button("Save Agent Changes") {
                                     vm.saveSelectedAgentEdits()

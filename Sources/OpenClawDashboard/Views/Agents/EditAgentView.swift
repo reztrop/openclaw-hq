@@ -9,6 +9,7 @@ struct EditAgentView: View {
     @State private var agentName: String
     @State private var agentEmoji: String
     @State private var selectedModelId: String?
+    @State private var canCommunicateWithAgents: Bool
     @State private var identityContent = ""
     @State private var activeImagePath: String?
     @State private var idleImagePath: String?
@@ -23,6 +24,7 @@ struct EditAgentView: View {
         _agentName = State(initialValue: agent.name)
         _agentEmoji = State(initialValue: agent.emoji)
         _selectedModelId = State(initialValue: agent.model)
+        _canCommunicateWithAgents = State(initialValue: agent.canCommunicateWithAgents)
         _activeImagePath = State(initialValue: agent.avatarActivePath)
         _idleImagePath = State(initialValue: agent.avatarIdlePath)
     }
@@ -107,6 +109,17 @@ struct EditAgentView: View {
                             .environmentObject(gatewayService)
                     }
 
+                    Toggle(isOn: $canCommunicateWithAgents) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Allow Agent-to-Agent Collaboration")
+                                .foregroundColor(.white)
+                            Text("When enabled, this agent may coordinate with other agents via Jarvis.")
+                                .font(.caption)
+                                .foregroundColor(Theme.textMuted)
+                        }
+                    }
+                    .toggleStyle(.switch)
+
                     // Identity / System prompt
                     VStack(alignment: .leading, spacing: 4) {
                         Text("System Prompt / Identity (optional)").font(.caption).foregroundColor(Theme.textMuted)
@@ -155,7 +168,8 @@ struct EditAgentView: View {
                 name: agentName.trimmingCharacters(in: .whitespaces),
                 emoji: agentEmoji,
                 model: selectedModelId,
-                identityContent: identityContent.isEmpty ? nil : identityContent
+                identityContent: identityContent.isEmpty ? nil : identityContent,
+                canCommunicateWithAgents: canCommunicateWithAgents
             )
             withAnimation { savedConfirmation = true }
             Task {

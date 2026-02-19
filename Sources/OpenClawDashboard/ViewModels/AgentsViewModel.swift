@@ -64,6 +64,7 @@ class AgentsViewModel: ObservableObject {
                 let emoji = (localEmoji?.isEmpty == false ? (localEmoji ?? gatewayEmoji) : gatewayEmoji)
                 let localModelId = ModelNormalizer.normalize(localConfig?.modelId)
                 let modelId = (localModelId?.isEmpty == false ? localModelId : gatewayModelId)
+                let canCommunicateWithAgents = localConfig?.canCommunicateWithAgents ?? true
                 let home = FileManager.default.homeDirectoryForCurrentUser.path
                 let isInitialized = FileManager.default.fileExists(atPath: "\(home)/.openclaw/agents/\(id.lowercased())/agent")
 
@@ -75,6 +76,7 @@ class AgentsViewModel: ObservableObject {
                     updated.model          = modelId
                     updated.modelName      = modelId
                     updated.isDefaultAgent = id == defaultId
+                    updated.canCommunicateWithAgents = canCommunicateWithAgents
                     updated.isInitialized  = isInitialized
                     return updated
                 }
@@ -90,6 +92,7 @@ class AgentsViewModel: ObservableObject {
                     model: modelId,
                     modelName: modelId,
                     isDefaultAgent: id == defaultId,
+                    canCommunicateWithAgents: canCommunicateWithAgents,
                     isInitialized: isInitialized
                 )
             }
@@ -200,7 +203,14 @@ class AgentsViewModel: ObservableObject {
 
     // MARK: - Agent CRUD
 
-    func createAgent(name: String, emoji: String, model: String?, identityContent: String?, soulContent: String? = nil) async throws {
+    func createAgent(
+        name: String,
+        emoji: String,
+        model: String?,
+        identityContent: String?,
+        soulContent: String? = nil,
+        canCommunicateWithAgents: Bool = true
+    ) async throws {
         let home = FileManager.default.homeDirectoryForCurrentUser.path
         let normalizedId = name.lowercased().replacingOccurrences(of: " ", with: "-")
         let workspace = "\(home)/.openclaw/workspace/agents/\(normalizedId)"
@@ -219,13 +229,18 @@ class AgentsViewModel: ObservableObject {
             }
         }
 
+        saveLocalAgentOverride(agentId: agentId) { config in
+            config.canCommunicateWithAgents = canCommunicateWithAgents
+        }
+
         // Write full workspace file set so the agent comes online fully initialized
         await writeAgentWorkspaceFiles(
             agentId: agentId,
             name: name,
             emoji: emoji,
             identityContent: identityContent,
-            soulContent: soulContent
+            soulContent: soulContent,
+            canCommunicateWithAgents: canCommunicateWithAgents
         )
 
         await refreshAgents()
@@ -239,7 +254,8 @@ class AgentsViewModel: ObservableObject {
         name: String,
         emoji: String,
         identityContent: String?,
-        soulContent: String?
+        soulContent: String?,
+        canCommunicateWithAgents: Bool
     ) async {
         let hasIdentity = identityContent.map { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty } ?? false
         let hasSoul     = soulContent.map { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty } ?? false
@@ -384,6 +400,25 @@ class AgentsViewModel: ObservableObject {
         """
         _ = try? await gatewayService.setAgentFile(agentId: agentId, name: "AGENTS.md", content: agentsFile)
 
+        let communicationSection = canCommunicateWithAgents
+            ? """
+            ## Inter-Agent Communication
+
+            - Enabled: this agent may coordinate with other agents through Jarvis.
+            - Use OpenClaw CLI when needed:
+              - `openclaw agent --agent jarvis --channel last -m "<update>"`
+              - `openclaw agent --agent atlas --channel last -m "<research request>"`
+              - `openclaw agent --agent matrix --channel last -m "<build request>"`
+              - `openclaw agent --agent prism --channel last -m "<qa request>"`
+              - `openclaw agent --agent scope --channel last -m "<planning request>"`
+            """
+            : """
+            ## Inter-Agent Communication
+
+            - Disabled: this agent should not initiate communication with other agents.
+            - Route outputs only to Jarvis; do not delegate to peers.
+            """
+
         // TOOLS.md
         let toolsFile = """
         # TOOLS.md - \(name) Local Notes
@@ -399,6 +434,8 @@ class AgentsViewModel: ObservableObject {
         ## Known Constraints
 
         *(Maintain a living list of discovered constraints and limits here.)*
+
+        \(communicationSection)
 
         ## Environment
 
@@ -417,7 +454,14 @@ class AgentsViewModel: ObservableObject {
         _ = try? await gatewayService.setAgentFile(agentId: agentId, name: "HEARTBEAT.md", content: heartbeatFile)
     }
 
-    func updateAgent(agentId: String, name: String? = nil, emoji: String? = nil, model: String? = nil, identityContent: String? = nil) async throws {
+    func updateAgent(
+        agentId: String,
+        name: String? = nil,
+        emoji: String? = nil,
+        model: String? = nil,
+        identityContent: String? = nil,
+        canCommunicateWithAgents: Bool? = nil
+    ) async throws {
         let trimmedName = name?.trimmingCharacters(in: .whitespacesAndNewlines)
         let finalName = (trimmedName?.isEmpty == true) ? nil : trimmedName
         let normalizedModel = ModelNormalizer.normalize(model)
@@ -443,6 +487,12 @@ class AgentsViewModel: ObservableObject {
             }
         }
 
+        if let canCommunicateWithAgents {
+            saveLocalAgentOverride(agentId: agentId) { config in
+                config.canCommunicateWithAgents = canCommunicateWithAgents
+            }
+        }
+
         // Update local state immediately
         if let idx = agents.firstIndex(where: { $0.id == agentId }) {
             if let name = finalName { agents[idx].name = name }
@@ -450,6 +500,9 @@ class AgentsViewModel: ObservableObject {
             if let model = normalizedModel {
                 agents[idx].model = model
                 agents[idx].modelName = availableModels.first(where: { $0.id == model })?.name
+            }
+            if let canCommunicateWithAgents {
+                agents[idx].canCommunicateWithAgents = canCommunicateWithAgents
             }
         }
     }

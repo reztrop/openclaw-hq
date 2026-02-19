@@ -6,8 +6,48 @@ struct LocalAgentConfig: Codable, Identifiable {
     var displayName: String? = nil
     var emoji: String? = nil
     var modelId: String? = nil
+    var canCommunicateWithAgents: Bool = true
     var activeAvatarPath: String? = nil
     var idleAvatarPath: String? = nil
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case displayName
+        case emoji
+        case modelId
+        case canCommunicateWithAgents
+        case activeAvatarPath
+        case idleAvatarPath
+    }
+
+    init(
+        id: String,
+        displayName: String? = nil,
+        emoji: String? = nil,
+        modelId: String? = nil,
+        canCommunicateWithAgents: Bool = true,
+        activeAvatarPath: String? = nil,
+        idleAvatarPath: String? = nil
+    ) {
+        self.id = id
+        self.displayName = displayName
+        self.emoji = emoji
+        self.modelId = modelId
+        self.canCommunicateWithAgents = canCommunicateWithAgents
+        self.activeAvatarPath = activeAvatarPath
+        self.idleAvatarPath = idleAvatarPath
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(String.self, forKey: .id)
+        displayName = try c.decodeIfPresent(String.self, forKey: .displayName)
+        emoji = try c.decodeIfPresent(String.self, forKey: .emoji)
+        modelId = try c.decodeIfPresent(String.self, forKey: .modelId)
+        canCommunicateWithAgents = try c.decodeIfPresent(Bool.self, forKey: .canCommunicateWithAgents) ?? true
+        activeAvatarPath = try c.decodeIfPresent(String.self, forKey: .activeAvatarPath)
+        idleAvatarPath = try c.decodeIfPresent(String.self, forKey: .idleAvatarPath)
+    }
 }
 
 struct LocalChatConversationConfig: Codable, Identifiable {

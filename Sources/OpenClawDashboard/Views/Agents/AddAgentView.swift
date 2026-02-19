@@ -73,6 +73,7 @@ struct CreateAgentForm: View {
     @State private var agentName = ""
     @State private var agentEmoji = "🤖"
     @State private var selectedModelId: String? = nil
+    @State private var canCommunicateWithAgents = true
     @State private var identityContent = ""
     @State private var soulContent = ""
     @State private var activeImagePath: String? = nil
@@ -139,6 +140,17 @@ struct CreateAgentForm: View {
                         .environmentObject(agentsVM)
                         .environmentObject(gatewayService)
                 }
+
+                Toggle(isOn: $canCommunicateWithAgents) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Allow Agent-to-Agent Collaboration")
+                            .foregroundColor(.white)
+                        Text("When enabled, this agent may coordinate with other agents via Jarvis.")
+                            .font(.caption)
+                            .foregroundColor(Theme.textMuted)
+                    }
+                }
+                .toggleStyle(.switch)
 
                 // Workspace files hint
                 HStack(spacing: 6) {
@@ -231,7 +243,8 @@ struct CreateAgentForm: View {
                 emoji: agentEmoji,
                 model: selectedModelId,
                 identityContent: identityContent.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : identityContent,
-                soulContent: soulContent.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : soulContent
+                soulContent: soulContent.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : soulContent,
+                canCommunicateWithAgents: canCommunicateWithAgents
             )
             dismiss()
         } catch {
