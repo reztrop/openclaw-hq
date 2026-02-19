@@ -29,6 +29,7 @@ struct OpenClawDashboardApp: App {
                 }
         }
         .defaultSize(width: Constants.windowWidth, height: Constants.windowHeight)
+        .windowStyle(.hiddenTitleBar)
         .commands {
             // View menu — tab switching
             CommandGroup(after: .sidebar) {
