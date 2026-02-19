@@ -573,7 +573,7 @@ struct ChatView: View {
 
                             Menu {
                                 Button(role: .destructive) {
-                                    chatVM.archiveConversation(convo.id)
+                                    archiveConversationFromRow(convo.id)
                                 } label: {
                                     Label("Archive Chat", systemImage: "archivebox")
                                 }
@@ -636,6 +636,12 @@ struct ChatView: View {
         } else if !chatVM.draftMessage.lowercased().contains("[project]") {
             chatVM.draftMessage = "\(seed)\(chatVM.draftMessage)"
         }
+    }
+
+    private func archiveConversationFromRow(_ conversationId: String) {
+        // Ensure action targets the row the user invoked, then archive that exact session.
+        chatVM.selectedConversationId = conversationId
+        chatVM.archiveConversation(conversationId)
     }
 
     private func enforceSidebarRules() {

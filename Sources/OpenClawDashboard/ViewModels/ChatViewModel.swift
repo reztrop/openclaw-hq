@@ -34,7 +34,7 @@ class ChatViewModel: ObservableObject {
     @Published var messages: [ChatMessage] = []
     @Published var draftMessage: String = ""
     @Published var selectedAgentId: String = "jarvis"
-    @Published var thinkingEnabled: Bool = false
+    @Published var thinkingEnabled: Bool = true
     @Published var selectedModelId: String? = nil   // nil = use the agent's default model
 
     /// The agent that will receive the next message — derived from the active conversation
