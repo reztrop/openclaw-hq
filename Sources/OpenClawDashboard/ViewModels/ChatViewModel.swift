@@ -50,9 +50,16 @@ class ChatViewModel: ObservableObject {
     @Published var pendingAttachments: [ChatAttachment] = []
     @Published var isSending = false
 
-    /// Live-streaming assistant text. Non-nil while an agent is actively generating a response.
-    /// Rendered as an in-progress bubble in the UI; committed to `messages` once complete.
+    /// Full accumulated streaming text — used as fallback for the final committed message.
+    /// Not rendered directly in the UI during streaming; use streamingStatusLine instead.
     @Published var streamingText: String? = nil
+
+    /// The last meaningful line from the stream — shown in the compact status bubble.
+    /// Updated as tokens arrive; stays short so the bubble stays small.
+    @Published var streamingStatusLine: String = ""
+
+    /// Whether the user has expanded the full streaming log inline.
+    @Published var streamingLogExpanded: Bool = false
 
     /// The stable ID used for the streaming bubble so ScrollView can anchor to it.
     let streamingBubbleId = "streaming-bubble"
@@ -107,9 +114,17 @@ class ChatViewModel: ObservableObject {
 
         switch stream {
         case "assistant":
-            // Accumulate streaming text chunks as they arrive
+            // Accumulate full text as fallback for the committed message
             if let chunk = eventData?["text"] as? String, !chunk.isEmpty {
                 streamingText = (streamingText ?? "") + chunk
+                // Update the status line with the last non-whitespace line of the stream
+                let full = streamingText ?? ""
+                let lastLine = full
+                    .components(separatedBy: "\n")
+                    .reversed()
+                    .first(where: { !$0.trimmingCharacters(in: .whitespaces).isEmpty })
+                    ?? ""
+                streamingStatusLine = lastLine
             }
         case "lifecycle":
             let phase = eventData?["phase"] as? String
@@ -287,6 +302,8 @@ class ChatViewModel: ObservableObject {
         }()
         // Seed the streaming bubble immediately so the UI shows activity right away.
         streamingText = ""
+        streamingStatusLine = ""
+        streamingLogExpanded = false
 
         // Run the gateway call in a tracked Task so stopCurrentRun() can cancel it.
         let task = Task {
@@ -356,6 +373,8 @@ class ChatViewModel: ObservableObject {
 
     private func commitResponse(text: String, agentId: String, userVisibleText: String) {
         streamingText = nil
+        streamingStatusLine = ""
+        streamingLogExpanded = false
         activeRunSessionKey = nil
 
         messages.append(ChatMessage(id: UUID().uuidString, role: "assistant", text: text, createdAt: Date()))

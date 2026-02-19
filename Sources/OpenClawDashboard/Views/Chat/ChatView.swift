@@ -328,36 +328,71 @@ struct ChatView: View {
     @ViewBuilder
     private var streamingBubble: some View {
         HStack {
-            VStack(alignment: .leading, spacing: 6) {
-                HStack(spacing: 6) {
-                    Text(selectedAgentName())
-                        .font(.caption2)
-                        .foregroundColor(Theme.textMuted)
-                    // Pulsing dot to show live activity
-                    Circle()
-                        .fill(Theme.jarvisBlue)
-                        .frame(width: 5, height: 5)
-                        .opacity(0.8)
-                }
+            VStack(alignment: .leading, spacing: 0) {
+                // Compact status row — always visible while running
+                Button {
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        chatVM.streamingLogExpanded.toggle()
+                    }
+                } label: {
+                    HStack(spacing: 8) {
+                        // Pulsing dot
+                        ThinkingDotsView()
+                            .frame(width: 28, height: 14)
 
-                if let text = chatVM.streamingText, !text.isEmpty {
-                    // Live text streaming in
-                    Text(text)
-                        .font(.body)
-                        .foregroundColor(.white)
-                        .padding(12)
-                        .background(Theme.darkSurface)
-                        .cornerRadius(12)
-                        .textSelection(.enabled)
-                } else {
-                    // No text yet — show animated ellipsis while agent is starting up
-                    ThinkingDotsView()
-                        .padding(12)
-                        .background(Theme.darkSurface)
-                        .cornerRadius(12)
+                        if chatVM.streamingStatusLine.isEmpty {
+                            Text("\(selectedAgentName()) is working…")
+                                .font(.caption)
+                                .foregroundColor(Theme.textMuted)
+                        } else {
+                            Text(chatVM.streamingStatusLine)
+                                .font(.caption)
+                                .foregroundColor(Theme.textSecondary)
+                                .lineLimit(1)
+                                .truncationMode(.tail)
+                                .frame(maxWidth: 560, alignment: .leading)
+                        }
+
+                        Spacer()
+
+                        // Expand/collapse chevron — only show if there's log content
+                        if let log = chatVM.streamingText, !log.isEmpty {
+                            Image(systemName: chatVM.streamingLogExpanded ? "chevron.up" : "chevron.down")
+                                .font(.system(size: 9, weight: .semibold))
+                                .foregroundColor(Theme.textMuted)
+                        }
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                    .background(Theme.darkSurface)
+                    .cornerRadius(10, corners: chatVM.streamingLogExpanded ? [.topLeft, .topRight] : [.topLeft, .topRight, .bottomLeft, .bottomRight])
+                }
+                .buttonStyle(.plain)
+
+                // Expanded log — full raw stream, fixed height with scroll
+                if chatVM.streamingLogExpanded, let log = chatVM.streamingText, !log.isEmpty {
+                    ScrollView(.vertical) {
+                        Text(log)
+                            .font(.system(.caption, design: .monospaced))
+                            .foregroundColor(Theme.textMuted.opacity(0.85))
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(10)
+                            .textSelection(.enabled)
+                    }
+                    .frame(maxHeight: 220)
+                    .background(Theme.darkSurface.opacity(0.6))
+                    .cornerRadius(0)
+                    .cornerRadius(10, corners: [.bottomLeft, .bottomRight])
+                    .transition(.opacity.combined(with: .move(edge: .top)))
                 }
             }
             .frame(maxWidth: 700, alignment: .leading)
+            .clipShape(RoundedRectangle(cornerRadius: 10))
+            .overlay(
+                RoundedRectangle(cornerRadius: 10)
+                    .stroke(Theme.darkBorder.opacity(0.3), lineWidth: 1)
+            )
+
             Spacer()
         }
         .padding(.horizontal, 16)
@@ -556,6 +591,49 @@ struct ChatView: View {
         } else if appViewModel.isMainSidebarCollapsed {
             appViewModel.isMainSidebarCollapsed = false
         }
+    }
+}
+
+// MARK: - Per-Corner Radius Helper
+
+extension View {
+    func cornerRadius(_ radius: CGFloat, corners: [RectCorner]) -> some View {
+        clipShape(RoundedCornerShape(radius: radius, corners: corners))
+    }
+}
+
+enum RectCorner: CaseIterable {
+    case topLeft, topRight, bottomLeft, bottomRight
+    static var all: [RectCorner] { allCases }
+}
+
+struct RoundedCornerShape: Shape {
+    var radius: CGFloat
+    var corners: [RectCorner]
+
+    init(radius: CGFloat, corners: [RectCorner]) {
+        self.radius = radius
+        self.corners = corners
+    }
+
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let tl = corners.contains(.topLeft)     ? radius : 0
+        let tr = corners.contains(.topRight)    ? radius : 0
+        let bl = corners.contains(.bottomLeft)  ? radius : 0
+        let br = corners.contains(.bottomRight) ? radius : 0
+
+        path.move(to: CGPoint(x: rect.minX + tl, y: rect.minY))
+        path.addLine(to: CGPoint(x: rect.maxX - tr, y: rect.minY))
+        if tr > 0 { path.addArc(center: CGPoint(x: rect.maxX - tr, y: rect.minY + tr), radius: tr, startAngle: .degrees(-90), endAngle: .degrees(0), clockwise: false) }
+        path.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY - br))
+        if br > 0 { path.addArc(center: CGPoint(x: rect.maxX - br, y: rect.maxY - br), radius: br, startAngle: .degrees(0), endAngle: .degrees(90), clockwise: false) }
+        path.addLine(to: CGPoint(x: rect.minX + bl, y: rect.maxY))
+        if bl > 0 { path.addArc(center: CGPoint(x: rect.minX + bl, y: rect.maxY - bl), radius: bl, startAngle: .degrees(90), endAngle: .degrees(180), clockwise: false) }
+        path.addLine(to: CGPoint(x: rect.minX, y: rect.minY + tl))
+        if tl > 0 { path.addArc(center: CGPoint(x: rect.minX + tl, y: rect.minY + tl), radius: tl, startAngle: .degrees(180), endAngle: .degrees(270), clockwise: false) }
+        path.closeSubpath()
+        return path
     }
 }
 
