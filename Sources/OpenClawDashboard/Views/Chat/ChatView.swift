@@ -109,6 +109,10 @@ struct ChatView: View {
     @State private var showImporter = false
     @State private var isTargetedForDrop = false
     @State private var isSidebarCollapsed = false
+    @State private var showAddTagSheet = false
+    @State private var newTagInput: String = ""
+    @State private var availableTags: [String] = ["[project]", "[changes-requested]", "[final-approve]"]
+    @State private var selectedTags: Set<String> = []
 
     init(chatViewModel: ChatViewModel) {
         _chatVM = StateObject(wrappedValue: chatViewModel)
@@ -435,7 +439,7 @@ struct ChatView: View {
                 ComposerTextView(
                     text: $chatVM.draftMessage,
                     placeholder: "Message \(selectedAgentName())…  (Shift+Enter for new line)",
-                    onSend: { Task { await chatVM.sendCurrentMessage() } },
+                    onSend: { Task { await sendCurrentMessageWithSelectedTags() } },
                     isSending: chatVM.isSending
                 )
                 .frame(minHeight: 36, maxHeight: 120)
@@ -456,7 +460,7 @@ struct ChatView: View {
                 } else {
                     // Send button
                     Button {
-                        Task { await chatVM.sendCurrentMessage() }
+                        Task { await sendCurrentMessageWithSelectedTags() }
                     } label: {
                         Image(systemName: "paperplane.fill")
                     }
@@ -496,6 +500,37 @@ struct ChatView: View {
                 if !chatVM.selectedConversationIsLockedToAgent {
                     modelPicker
                 }
+
+                Menu {
+                    ForEach(availableTags, id: \.self) { tag in
+                        Button {
+                            toggleTag(tag)
+                        } label: {
+                            Label(tag, systemImage: selectedTags.contains(tag) ? "checkmark.circle.fill" : "circle")
+                        }
+                    }
+                    Divider()
+                    Button {
+                        showAddTagSheet = true
+                    } label: {
+                        Label("Add Tag...", systemImage: "plus")
+                    }
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "tag")
+                            .font(.caption)
+                        Text(selectedTags.isEmpty ? "Tags" : "Tags (\(selectedTags.count))")
+                            .font(.caption)
+                    }
+                    .foregroundColor(Theme.textMuted)
+                }
+                .menuStyle(.borderlessButton)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 6)
+                .background(Theme.darkSurface)
+                .overlay(RoundedRectangle(cornerRadius: 8).stroke(Theme.darkBorder, lineWidth: 1))
+                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+
                 HStack(spacing: 6) {
                     Image(systemName: "cpu")
                         .font(.caption)
@@ -526,6 +561,30 @@ struct ChatView: View {
             }
         }
         .padding(12)
+        .sheet(isPresented: $showAddTagSheet) {
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Add Tag")
+                    .font(.headline)
+                    .foregroundColor(.white)
+                TextField("example: blocked", text: $newTagInput)
+                    .textFieldStyle(.roundedBorder)
+                HStack {
+                    Spacer()
+                    Button("Cancel") {
+                        newTagInput = ""
+                        showAddTagSheet = false
+                    }
+                    Button("Add") {
+                        addTagFromInput()
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(newTagInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                }
+            }
+            .padding(16)
+            .frame(width: 360)
+            .background(Theme.darkBackground)
+        }
     }
 
     // MARK: - Sidebar
@@ -642,6 +701,55 @@ struct ChatView: View {
         // Ensure action targets the row the user invoked, then archive that exact session.
         chatVM.selectedConversationId = conversationId
         chatVM.archiveConversation(conversationId)
+    }
+
+    private func toggleTag(_ tag: String) {
+        if selectedTags.contains(tag) {
+            selectedTags.remove(tag)
+        } else {
+            selectedTags.insert(tag)
+        }
+    }
+
+    private func addTagFromInput() {
+        let trimmed = newTagInput.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        let normalized = normalizeTag(trimmed)
+        if !availableTags.contains(normalized) {
+            availableTags.append(normalized)
+        }
+        selectedTags.insert(normalized)
+        newTagInput = ""
+        showAddTagSheet = false
+    }
+
+    private func normalizeTag(_ raw: String) -> String {
+        let core = raw
+            .replacingOccurrences(of: "[", with: "")
+            .replacingOccurrences(of: "]", with: "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        return "[\(core)]"
+    }
+
+    private func sendCurrentMessageWithSelectedTags() async {
+        if !selectedTags.isEmpty {
+            let ordered = availableTags.filter { selectedTags.contains($0) }
+            let prefix = ordered.joined(separator: " ")
+            let draft = chatVM.draftMessage.trimmingCharacters(in: .whitespacesAndNewlines)
+            if draft.isEmpty {
+                chatVM.draftMessage = prefix
+            } else {
+                var missing: [String] = []
+                let lower = draft.lowercased()
+                for tag in ordered where !lower.contains(tag.lowercased()) {
+                    missing.append(tag)
+                }
+                if !missing.isEmpty {
+                    chatVM.draftMessage = "\(missing.joined(separator: " ")) \(draft)"
+                }
+            }
+        }
+        await chatVM.sendCurrentMessage()
     }
 
     private func enforceSidebarRules() {
