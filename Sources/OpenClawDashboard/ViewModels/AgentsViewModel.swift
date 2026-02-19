@@ -209,7 +209,8 @@ class AgentsViewModel: ObservableObject {
         model: String?,
         identityContent: String?,
         soulContent: String? = nil,
-        canCommunicateWithAgents: Bool = true
+        canCommunicateWithAgents: Bool = true,
+        bootOnStart: Bool = true
     ) async throws {
         let home = FileManager.default.homeDirectoryForCurrentUser.path
         let normalizedId = name.lowercased().replacingOccurrences(of: " ", with: "-")
@@ -244,6 +245,54 @@ class AgentsViewModel: ObservableObject {
         )
 
         await refreshAgents()
+
+        if bootOnStart {
+            Task { [weak self] in
+                await self?.bootAgentOnStart(agentId: agentId, agentName: name)
+            }
+        }
+    }
+
+    private func bootAgentOnStart(agentId: String, agentName: String) async {
+        let coordinatorId = preferredCoordinatorAgentId()
+        let bootRequest = """
+        A new agent was just created and needs immediate startup initialization.
+        Agent ID: \(agentId)
+        Agent Name: \(agentName)
+
+        Please perform a short boot handshake now:
+        1) Contact the new agent directly.
+        2) Confirm it replies and is ready to receive work.
+        3) Ask it to complete first-run bootstrap behavior.
+        4) Reply back with a one-line readiness status.
+        """
+
+        do {
+            _ = try await gatewayService.sendAgentCommand(coordinatorId, message: bootRequest)
+            return
+        } catch {
+            print("[AgentsVM] Coordinator boot request failed (\(coordinatorId)): \(error)")
+        }
+
+        // Fallback: directly warm up the new agent if coordinator routing fails.
+        let directWarmup = """
+        Quick startup check: introduce yourself in one line and confirm you are online, initialized, and ready to receive tasks.
+        """
+        do {
+            _ = try await gatewayService.sendAgentCommand(agentId, message: directWarmup)
+        } catch {
+            print("[AgentsVM] Direct boot warmup failed (\(agentId)): \(error)")
+        }
+    }
+
+    private func preferredCoordinatorAgentId() -> String {
+        if let jarvis = agents.first(where: { $0.name.lowercased() == "jarvis" || $0.id.lowercased() == "jarvis" }) {
+            return jarvis.id
+        }
+        if let defaultAgentId, !defaultAgentId.isEmpty {
+            return defaultAgentId
+        }
+        return "main"
     }
 
     /// Writes the full set of workspace files (IDENTITY, USER, SOUL, BOOTSTRAP, AGENTS, TOOLS,

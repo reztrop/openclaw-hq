@@ -75,6 +75,7 @@ struct CreateAgentForm: View {
     @State private var agentEmoji = "🤖"
     @State private var selectedModelId: String? = nil
     @State private var canCommunicateWithAgents = true
+    @State private var bootOnStart = true
     @State private var identityContent = ""
     @State private var soulContent = ""
     @State private var activeImagePath: String? = nil
@@ -163,6 +164,17 @@ struct CreateAgentForm: View {
                         Text("Allow Agent-to-Agent Collaboration")
                             .foregroundColor(.white)
                         Text("When enabled, this agent may coordinate with other agents via Jarvis.")
+                            .font(.caption)
+                            .foregroundColor(Theme.textMuted)
+                    }
+                }
+                .toggleStyle(.switch)
+
+                Toggle(isOn: $bootOnStart) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Boot on Start")
+                            .foregroundColor(.white)
+                        Text("When enabled, Jarvis immediately boots and verifies this agent after creation so it can start working right away.")
                             .font(.caption)
                             .foregroundColor(Theme.textMuted)
                     }
@@ -261,7 +273,8 @@ struct CreateAgentForm: View {
                 model: selectedModelId,
                 identityContent: identityContent.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : identityContent,
                 soulContent: soulContent.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : soulContent,
-                canCommunicateWithAgents: canCommunicateWithAgents
+                canCommunicateWithAgents: canCommunicateWithAgents,
+                bootOnStart: bootOnStart
             )
             dismiss()
         } catch {
