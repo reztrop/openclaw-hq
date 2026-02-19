@@ -9,6 +9,7 @@ struct UsageView: View {
         ScrollView {
             VStack(spacing: 0) {
                 ConnectionBanner()
+                controlsBar
 
                 VStack(spacing: 24) {
                     // Summary cards
@@ -35,28 +36,32 @@ struct UsageView: View {
         .task {
             await usageVM.fetchUsageData()
         }
-        .toolbar {
-            ToolbarItem(placement: .automatic) {
-                Picker("Range", selection: $usageVM.dateRange) {
-                    ForEach(DateRange.allCases, id: \.self) { range in
-                        Text(range.label).tag(range)
-                    }
+    }
+
+    private var controlsBar: some View {
+        HStack(spacing: 12) {
+            Picker("Range", selection: $usageVM.dateRange) {
+                ForEach(DateRange.allCases, id: \.self) { range in
+                    Text(range.label).tag(range)
                 }
-                .pickerStyle(.segmented)
-                .frame(width: 200)
-                .onChange(of: usageVM.dateRange) { _, _ in
-                    Task { await usageVM.fetchUsageData() }
-                }
+            }
+            .pickerStyle(.segmented)
+            .frame(width: 240)
+            .onChange(of: usageVM.dateRange) { _, _ in
+                Task { await usageVM.fetchUsageData() }
             }
 
-            ToolbarItem(placement: .automatic) {
-                Button {
-                    Task { await usageVM.fetchUsageData() }
-                } label: {
-                    Image(systemName: "arrow.clockwise")
-                }
+            Button {
+                Task { await usageVM.fetchUsageData() }
+            } label: {
+                Label("Refresh", systemImage: "arrow.clockwise")
             }
+            .buttonStyle(.bordered)
+
+            Spacer()
         }
+        .padding(.horizontal, 24)
+        .padding(.vertical, 10)
     }
 
     // MARK: - Summary Cards

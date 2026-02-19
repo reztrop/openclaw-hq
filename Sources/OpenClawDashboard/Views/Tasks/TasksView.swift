@@ -8,6 +8,7 @@ struct TasksView: View {
     var body: some View {
         VStack(spacing: 0) {
             ConnectionBanner()
+            controlsBar
 
             if tasksVM.isExecutionPaused {
                 HStack(spacing: 8) {
@@ -47,24 +48,6 @@ struct TasksView: View {
             .padding(20)
         }
         .background(Theme.darkBackground)
-        .toolbar {
-            ToolbarItem(placement: .automatic) {
-                Button {
-                    tasksVM.startNewTask()
-                } label: {
-                    Label("New Task", systemImage: "plus")
-                }
-            }
-            ToolbarItem(placement: .automatic) {
-                Button {
-                    tasksVM.toggleExecutionPaused()
-                } label: {
-                    Label(tasksVM.isExecutionPaused ? "Resume" : "Pause",
-                          systemImage: tasksVM.isExecutionPaused ? "play.fill" : "pause.fill")
-                }
-                .help(tasksVM.isExecutionPaused ? "Resume all task activity" : "Pause all task activity")
-            }
-        }
         .sheet(isPresented: $tasksVM.showingNewTask) {
             TaskEditSheet(task: nil) { title, desc, agent, priority, scheduled in
                 tasksVM.createTask(
@@ -92,6 +75,30 @@ struct TasksView: View {
         .sheet(item: $selectedTaskForView) { task in
             TaskDetailSheet(task: task)
         }
+    }
+
+    private var controlsBar: some View {
+        HStack(spacing: 10) {
+            Button {
+                tasksVM.startNewTask()
+            } label: {
+                Label("New Task", systemImage: "plus")
+            }
+            .buttonStyle(.bordered)
+
+            Button {
+                tasksVM.toggleExecutionPaused()
+            } label: {
+                Label(tasksVM.isExecutionPaused ? "Resume" : "Pause",
+                      systemImage: tasksVM.isExecutionPaused ? "play.fill" : "pause.fill")
+            }
+            .buttonStyle(.bordered)
+            .help(tasksVM.isExecutionPaused ? "Resume all task activity" : "Pause all task activity")
+
+            Spacer()
+        }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 10)
     }
 
     private func handleDroppedTasks(_ droppedTasks: [TaskItem], to status: TaskStatus) -> Bool {

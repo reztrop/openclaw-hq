@@ -12,6 +12,7 @@ struct AgentsView: View {
         ScrollView {
             VStack(spacing: 0) {
                 ConnectionBanner()
+                controlsBar
 
                 LazyVGrid(columns: columns, spacing: 20) {
                     ForEach(agentsVM.agents) { agent in
@@ -28,15 +29,20 @@ struct AgentsView: View {
         .sheet(item: $agentsVM.selectedAgent) { agent in
             AgentDetailView(agent: agent)
         }
-        .toolbar {
-            ToolbarItem(placement: .automatic) {
-                Button {
-                    Task { await agentsVM.refreshAgents() }
-                } label: {
-                    Image(systemName: "arrow.clockwise")
-                }
-                .disabled(agentsVM.isRefreshing)
+    }
+
+    private var controlsBar: some View {
+        HStack {
+            Button {
+                Task { await agentsVM.refreshAgents() }
+            } label: {
+                Label("Refresh Agents", systemImage: "arrow.clockwise")
             }
+            .buttonStyle(.bordered)
+            .disabled(agentsVM.isRefreshing)
+            Spacer()
         }
+        .padding(.horizontal, 24)
+        .padding(.vertical, 10)
     }
 }

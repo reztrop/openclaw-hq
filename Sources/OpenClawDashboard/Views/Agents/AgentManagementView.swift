@@ -25,6 +25,7 @@ struct AgentManagementView: View {
         ScrollView {
             VStack(spacing: 0) {
                 ConnectionBanner()
+                controlsBar
 
                 if agentsVM.agents.isEmpty && !agentsVM.isRefreshing {
                     emptyState
@@ -82,32 +83,6 @@ struct AgentManagementView: View {
                 .environmentObject(gatewayService)
             }
         }
-        .toolbar {
-            ToolbarItemGroup(placement: .automatic) {
-                // Add button
-                Button {
-                    addMode = .create
-                    showAddSheet = true
-                } label: {
-                    Label("Add Agent", systemImage: "plus.circle.fill")
-                }
-                .labelStyle(.titleAndIcon)
-                .disabled(!gatewayService.isConnected)
-                .help("Create a new agent")
-
-                Button {
-                    Task { await checkForUpdates() }
-                } label: {
-                    if isCheckingForUpdates || isInstallingUpdate {
-                        Label("Checking...", systemImage: "arrow.triangle.2.circlepath")
-                    } else {
-                        Label("Check for Updates", systemImage: "arrow.down.circle")
-                    }
-                }
-                .disabled(isCheckingForUpdates || isInstallingUpdate)
-                .help("Check GitHub for newer OpenClaw HQ releases")
-            }
-        }
         .alert("Update Available", isPresented: $showUpdateAvailableAlert) {
             Button("Skip", role: .cancel) {}
             Button("Update") {
@@ -150,6 +125,37 @@ struct AgentManagementView: View {
                 }
             }
         }
+    }
+
+    private var controlsBar: some View {
+        HStack(spacing: 10) {
+            Button {
+                addMode = .create
+                showAddSheet = true
+            } label: {
+                Label("Add Agent", systemImage: "plus.circle.fill")
+            }
+            .labelStyle(.titleAndIcon)
+            .disabled(!gatewayService.isConnected)
+            .help("Create a new agent")
+
+            Button {
+                Task { await checkForUpdates() }
+            } label: {
+                if isCheckingForUpdates || isInstallingUpdate {
+                    Label("Checking...", systemImage: "arrow.triangle.2.circlepath")
+                } else {
+                    Label("Check for Updates", systemImage: "arrow.down.circle")
+                }
+            }
+            .disabled(isCheckingForUpdates || isInstallingUpdate)
+            .help("Check GitHub for newer OpenClaw HQ releases")
+
+            Spacer()
+        }
+        .padding(.horizontal, 24)
+        .padding(.vertical, 10)
+        .background(Theme.darkBackground)
     }
 
     private var emptyState: some View {
