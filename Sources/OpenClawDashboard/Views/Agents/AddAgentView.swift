@@ -157,7 +157,7 @@ struct CreateAgentForm: View {
                     Image(systemName: "info.circle")
                         .font(.caption)
                         .foregroundColor(Theme.jarvisBlue)
-                    Text("Creating an agent writes IDENTITY.md, USER.md, SOUL.md, BOOTSTRAP.md, AGENTS.md, TOOLS.md, and HEARTBEAT.md to the workspace automatically.")
+                    Text("Creating an agent writes IDENTITY.md, USER.md, SOUL.md, BOOTSTRAP.md, AGENTS.md, TOOLS.md, MEMORY.md, and HEARTBEAT.md to the workspace automatically.")
                         .font(.caption)
                         .foregroundColor(Theme.textMuted)
                         .fixedSize(horizontal: false, vertical: true)

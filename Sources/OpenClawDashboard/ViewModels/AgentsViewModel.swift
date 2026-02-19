@@ -247,7 +247,7 @@ class AgentsViewModel: ObservableObject {
     }
 
     /// Writes the full set of workspace files (IDENTITY, USER, SOUL, BOOTSTRAP, AGENTS, TOOLS,
-    /// HEARTBEAT) for a newly created agent. Called during createAgent so the agent is fully
+    /// MEMORY, HEARTBEAT) for a newly created agent. Called during createAgent so the agent is fully
     /// initialized rather than starting with an empty workspace.
     private func writeAgentWorkspaceFiles(
         agentId: String,
@@ -382,12 +382,14 @@ class AgentsViewModel: ObservableObject {
         - `USER.md` — about Andrew and this agent's relationship to him
         - `SOUL.md` — core values and operating principles
         - `TOOLS.md` — agent-specific tools, notes, and known constraints
-        - `HEARTBEAT.md` — session log
+        - `MEMORY.md` — durable working memory and handoff notes
+        - `HEARTBEAT.md` — lightweight per-session log
 
         ## Rules
 
         - Read workspace files at the start of each session
         - Update `TOOLS.md` as knowledge and constraints accumulate
+        - Update `MEMORY.md` with durable findings and handoff context
         - Update `HEARTBEAT.md` with a brief note each session
         - Route all communication through Jarvis — never address Andrew directly
         - Do not approve work as complete — that authority belongs elsewhere in the chain
@@ -448,6 +450,21 @@ class AgentsViewModel: ObservableObject {
         *Keep this current — it feeds every downstream decision.*
         """
         _ = try? await gatewayService.setAgentFile(agentId: agentId, name: "TOOLS.md", content: toolsFile)
+
+        // MEMORY.md
+        let memoryFile = """
+        # MEMORY.md
+
+        ## Durable Notes
+
+        - Keep long-lived context here: decisions, conventions, handoff notes, and known constraints.
+        - Do not store secrets or credentials.
+
+        ## Current Focus
+
+        - (Update with current mission focus and next actions.)
+        """
+        _ = try? await gatewayService.setAgentFile(agentId: agentId, name: "MEMORY.md", content: memoryFile)
 
         // HEARTBEAT.md
         let heartbeatFile = "# HEARTBEAT.md\n\n*(Session log — update each session with date and brief summary of work done.)*\n"
