@@ -37,7 +37,7 @@ class AppViewModel: ObservableObject {
     let taskService = TaskService()
     lazy var agentsViewModel = AgentsViewModel(gatewayService: gatewayService, settingsService: settingsService)
     lazy var chatViewModel = ChatViewModel(gatewayService: gatewayService, settingsService: settingsService)
-    lazy var projectsViewModel = ProjectsViewModel(taskService: taskService, gatewayService: gatewayService)
+    lazy var projectsViewModel = ProjectsViewModel(gatewayService: gatewayService)
     lazy var tasksViewModel = TasksViewModel(taskService: taskService)
     lazy var usageViewModel = UsageViewModel(gatewayService: gatewayService)
     lazy var gatewayStatusViewModel = GatewayStatusViewModel(gatewayService: gatewayService)
@@ -47,9 +47,13 @@ class AppViewModel: ObservableObject {
     private var cancellables = Set<AnyCancellable>()
 
     init() {
-        chatViewModel.onProjectKickoff = { [weak self] sessionKey, userPrompt in
+        chatViewModel.onProjectPlanningStarted = { [weak self] sessionKey, userPrompt in
             guard let self else { return }
-            self.projectsViewModel.registerProjectKickoff(conversationId: sessionKey, userPrompt: userPrompt)
+            self.projectsViewModel.registerProjectPlanningStarted(conversationId: sessionKey, userPrompt: userPrompt)
+        }
+        chatViewModel.onProjectScopeReady = { [weak self] sessionKey, assistantResponse in
+            guard let self else { return }
+            self.projectsViewModel.registerProjectScopeReady(conversationId: sessionKey, assistantResponse: assistantResponse)
         }
 
         // Set up notifications

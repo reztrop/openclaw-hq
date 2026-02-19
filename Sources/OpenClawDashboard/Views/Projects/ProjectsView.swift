@@ -2,92 +2,47 @@ import SwiftUI
 import AppKit
 
 struct ProjectsView: View {
+    @EnvironmentObject var appViewModel: AppViewModel
     @EnvironmentObject var projectsVM: ProjectsViewModel
 
+    @State private var isSidebarCollapsed = false
+
     var body: some View {
-        HStack(spacing: 0) {
-            sidebar
-                .frame(width: 300)
-            Divider().background(Theme.darkBorder)
-            detail
+        GeometryReader { geo in
+            HStack(spacing: 0) {
+                detail
+
+                if !isSidebarCollapsed {
+                    Divider().background(Theme.darkBorder)
+                    sidebar
+                        .frame(width: 320)
+                        .background(Theme.darkSurface.opacity(0.7))
+                        .transition(.move(edge: .trailing).combined(with: .opacity))
+                }
+            }
+            .onAppear {
+                if geo.size.width < 1180 {
+                    isSidebarCollapsed = true
+                }
+                enforceSidebarRules()
+            }
+            .onChange(of: geo.size.width) { _, newWidth in
+                if newWidth < 980 {
+                    isSidebarCollapsed = true
+                }
+                enforceSidebarRules()
+            }
+            .onChange(of: isSidebarCollapsed) { _, _ in
+                enforceSidebarRules()
+            }
+            .onChange(of: appViewModel.isMainSidebarCollapsed) { _, _ in
+                enforceSidebarRules()
+            }
+            .onChange(of: appViewModel.isCompactWindow) { _, _ in
+                enforceSidebarRules()
+            }
         }
         .background(Theme.darkBackground)
-    }
-
-    private var sidebar: some View {
-        VStack(spacing: 0) {
-            HStack {
-                Text("Projects")
-                    .font(.title2.bold())
-                    .foregroundColor(.white)
-                Spacer()
-                Button {
-                    _ = projectsVM.createProject(title: "New Project")
-                } label: {
-                    Label("New", systemImage: "plus")
-                }
-                .buttonStyle(.borderedProminent)
-            }
-            .padding(12)
-
-            Divider().background(Theme.darkBorder)
-
-            ScrollView {
-                LazyVStack(spacing: 8) {
-                    ForEach(projectsVM.projects) { project in
-                        Button {
-                            projectsVM.selectProject(project.id)
-                        } label: {
-                            projectRow(project)
-                        }
-                        .buttonStyle(.plain)
-                        .contextMenu {
-                            Button("Delete Project", role: .destructive) {
-                                projectsVM.deleteProject(project.id)
-                            }
-                        }
-                    }
-                }
-                .padding(10)
-            }
-        }
-        .background(Theme.darkSurface)
-    }
-
-    private func projectRow(_ project: ProjectRecord) -> some View {
-        let isSelected = projectsVM.selectedProjectId == project.id
-        return VStack(alignment: .leading, spacing: 6) {
-            HStack {
-                Text(project.title)
-                    .font(.headline)
-                    .foregroundColor(.white)
-                    .lineLimit(1)
-                Spacer()
-                if let stage = project.blueprint.activeStage.next {
-                    Text(stage.rawValue)
-                        .font(.caption2)
-                        .foregroundColor(Theme.textMuted)
-                } else {
-                    Text("Done")
-                        .font(.caption2)
-                        .foregroundColor(Theme.statusOnline)
-                }
-            }
-            Text(project.blueprint.overview)
-                .font(.caption)
-                .foregroundColor(Theme.textSecondary)
-                .lineLimit(2)
-            Text(project.updatedAt.formatted(date: .abbreviated, time: .shortened))
-                .font(.caption2)
-                .foregroundColor(Theme.textMuted)
-        }
-        .padding(10)
-        .background(isSelected ? Theme.darkAccent : Theme.darkBackground)
-        .overlay(
-            RoundedRectangle(cornerRadius: 10)
-                .stroke(isSelected ? Theme.jarvisBlue : Theme.darkBorder, lineWidth: 1)
-        )
-        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
     }
 
     @ViewBuilder
@@ -108,19 +63,109 @@ struct ProjectsView: View {
                 .frame(maxWidth: 980, alignment: .leading)
             }
         } else {
-            VStack(spacing: 10) {
-                Text("No Project Selected")
+            VStack(spacing: 12) {
+                topBar
+                Spacer()
+                Text("No Projects Yet")
                     .font(.title3.bold())
                     .foregroundColor(.white)
-                Text("Create a project from here or start one in Jarvis chat using [project].")
+                Text("Use Chat -> + -> Start Project Planning, then work with Jarvis. A project will appear here when Jarvis marks it [project-ready].")
                     .foregroundColor(Theme.textSecondary)
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: 680)
+                Spacer()
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .padding(24)
+        }
+    }
+
+    private var sidebar: some View {
+        VStack(spacing: 10) {
+            HStack {
+                Text("Projects")
+                    .font(.headline)
+                    .foregroundColor(.white)
+                Spacer()
+            }
+
+            if projectsVM.projects.isEmpty {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("No projects yet")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundColor(.white)
+                    Text("Projects are created automatically after planning in Jarvis chat is marked [project-ready].")
+                        .font(.caption)
+                        .foregroundColor(Theme.textSecondary)
+                }
+                .padding(10)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Theme.darkSurface)
+                .cornerRadius(10)
+            }
+
+            ScrollView {
+                LazyVStack(spacing: 6) {
+                    ForEach(projectsVM.projects) { project in
+                        HStack(spacing: 6) {
+                            Button {
+                                projectsVM.selectProject(project.id)
+                            } label: {
+                                projectRow(project)
+                            }
+                            .buttonStyle(.plain)
+
+                            Menu {
+                                Button(role: .destructive) {
+                                    projectsVM.deleteProject(project.id)
+                                } label: {
+                                    Label("Delete Project", systemImage: "trash")
+                                }
+                            } label: {
+                                Image(systemName: "ellipsis.circle")
+                                    .foregroundColor(Theme.textMuted)
+                            }
+                            .menuStyle(.borderlessButton)
+                            .fixedSize()
+                        }
+                    }
+                }
+            }
+        }
+        .padding(12)
+    }
+
+    private func topBarTitle(_ project: ProjectRecord?) -> String {
+        project?.title ?? "Projects"
+    }
+
+    private var topBar: some View {
+        HStack(spacing: 10) {
+            Text(topBarTitle(projectsVM.selectedProject))
+                .font(.title2)
+                .fontWeight(.bold)
+                .foregroundColor(.white)
+                .lineLimit(1)
+
+            Spacer()
+
+            Button {
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    isSidebarCollapsed.toggle()
+                }
+            } label: {
+                Label(isSidebarCollapsed ? "Show Projects" : "Hide Projects",
+                      systemImage: isSidebarCollapsed ? "sidebar.right" : "sidebar.right")
+                    .labelStyle(.iconOnly)
+            }
+            .buttonStyle(.bordered)
+            .help(isSidebarCollapsed ? "Show Projects" : "Hide Projects")
         }
     }
 
     private func detailHeader(_ project: ProjectRecord) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 10) {
+            topBar
             LabeledTextField(
                 title: "Project Name",
                 text: Binding(
@@ -129,10 +174,40 @@ struct ProjectsView: View {
                 ),
                 onCommit: { }
             )
-            Text("Use [project] in Jarvis chat to initialize new project threads. Approve each stage to trigger team drafting of the next one.")
+            Text("Edit any page before approval. Approving a page auto-saves and dispatches Jarvis + team to regenerate downstream pages up to your current progress.")
                 .font(.subheadline)
                 .foregroundColor(Theme.textSecondary)
         }
+    }
+
+    private func projectRow(_ project: ProjectRecord) -> some View {
+        let isSelected = projectsVM.selectedProjectId == project.id
+        return VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                Text(project.title)
+                    .font(.headline)
+                    .foregroundColor(.white)
+                    .lineLimit(1)
+                Spacer()
+                Text(project.blueprint.activeStage.rawValue)
+                    .font(.caption2)
+                    .foregroundColor(Theme.textMuted)
+            }
+            Text(project.blueprint.overview)
+                .font(.caption)
+                .foregroundColor(Theme.textSecondary)
+                .lineLimit(2)
+            Text(project.updatedAt.formatted(date: .abbreviated, time: .shortened))
+                .font(.caption2)
+                .foregroundColor(Theme.textMuted)
+        }
+        .padding(10)
+        .background(isSelected ? Theme.darkAccent : Theme.darkBackground)
+        .overlay(
+            RoundedRectangle(cornerRadius: 10)
+                .stroke(isSelected ? Theme.jarvisBlue : Theme.darkBorder, lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
     }
 
     private func stageBar(_ project: ProjectRecord) -> some View {
@@ -175,7 +250,7 @@ struct ProjectsView: View {
         case .dataModel:
             singleTextStage(
                 title: "Data Model",
-                subtitle: "Team draft generated after Product approval. Edit as needed, then approve.",
+                subtitle: "Team draft generated after Product approval. Edit, save, then approve.",
                 value: Binding(
                     get: { project.blueprint.dataModelText },
                     set: { projectsVM.updateDataModel($0) }
@@ -368,6 +443,18 @@ struct ProjectsView: View {
                 .foregroundColor(.white)
             Text(subtitle)
                 .foregroundColor(Theme.textSecondary)
+        }
+    }
+
+    private func enforceSidebarRules() {
+        guard appViewModel.isCompactWindow else { return }
+
+        if !isSidebarCollapsed {
+            if !appViewModel.isMainSidebarCollapsed {
+                appViewModel.isMainSidebarCollapsed = true
+            }
+        } else if appViewModel.isMainSidebarCollapsed {
+            appViewModel.isMainSidebarCollapsed = false
         }
     }
 }

@@ -630,7 +630,7 @@ struct ChatView: View {
         let jarvis = preferredJarvisId()
         chatVM.startNewChat(defaultAgentId: jarvis)
         chatVM.selectedAgentId = jarvis
-        let seed = "[project] "
+        let seed = "[project] We are starting a new project. Ask clarifying questions until scope is complete. When the scope is fully defined, respond with [project-ready] and a concise scoped summary.\n\nProject brief: "
         if chatVM.draftMessage.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             chatVM.draftMessage = seed
         } else if !chatVM.draftMessage.lowercased().contains("[project]") {

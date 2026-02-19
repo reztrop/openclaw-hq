@@ -73,7 +73,8 @@ class ChatViewModel: ObservableObject {
     private var activeRunSessionKey: String? = nil
     /// The Task wrapping the current sendAgentMessage call — cancelled by stopCurrentRun().
     private var sendTask: Task<Void, Never>? = nil
-    var onProjectKickoff: ((String, String) -> Void)?
+    var onProjectPlanningStarted: ((String, String) -> Void)?
+    var onProjectScopeReady: ((String, String) -> Void)?
 
     private var uploadsDir: String {
         NSString(string: "~/.openclaw/workspace/uploads/chat").expandingTildeInPath
@@ -294,7 +295,7 @@ class ChatViewModel: ObservableObject {
             }
             return selectedAgentId
         }()
-        let shouldCreateProject = outboundAgentId.lowercased() == "jarvis"
+        let isProjectPlanningKickoff = outboundAgentId.lowercased() == "jarvis"
             && trimmed.lowercased().contains("[project]")
 
         // Set the session key so streaming events are filtered to this conversation.
@@ -314,7 +315,7 @@ class ChatViewModel: ObservableObject {
                 agentId: outboundAgentId,
                 message: finalMessage,
                 userVisibleText: userVisibleText,
-                shouldCreateProject: shouldCreateProject
+                isProjectPlanningKickoff: isProjectPlanningKickoff
             )
         }
         sendTask = task
@@ -329,7 +330,7 @@ class ChatViewModel: ObservableObject {
         sendTask = nil
     }
 
-    private func performSend(agentId: String, message: String, userVisibleText: String, shouldCreateProject: Bool) async {
+    private func performSend(agentId: String, message: String, userVisibleText: String, isProjectPlanningKickoff: Bool) async {
         let outboundSessionKey = activeRunSessionKey
 
         do {
@@ -358,8 +359,13 @@ class ChatViewModel: ObservableObject {
                 : finalText
 
             commitResponse(text: assistantText, agentId: agentId, userVisibleText: userVisibleText)
-            if shouldCreateProject, let key = selectedConversationId {
-                onProjectKickoff?(key, userVisibleText)
+            if let key = selectedConversationId {
+                if isProjectPlanningKickoff {
+                    onProjectPlanningStarted?(key, userVisibleText)
+                }
+                if assistantText.lowercased().contains("[project-ready]") {
+                    onProjectScopeReady?(key, assistantText)
+                }
             }
 
         } catch where Task.isCancelled || (error as? CancellationError) != nil {

@@ -88,6 +88,62 @@ struct ProductBlueprint: Codable, Hashable {
             activeStage: .product
         )
     }
+
+    enum CodingKeys: String, CodingKey {
+        case projectName
+        case overview
+        case problemsText
+        case featuresText
+        case dataModelText
+        case designText
+        case sectionsDraftText
+        case sections
+        case exportNotes
+        case lastUpdated
+        case activeStage
+    }
+
+    init(
+        projectName: String,
+        overview: String,
+        problemsText: String,
+        featuresText: String,
+        dataModelText: String,
+        designText: String,
+        sectionsDraftText: String,
+        sections: [ProductSection],
+        exportNotes: String,
+        lastUpdated: Date,
+        activeStage: ProductStage
+    ) {
+        self.projectName = projectName
+        self.overview = overview
+        self.problemsText = problemsText
+        self.featuresText = featuresText
+        self.dataModelText = dataModelText
+        self.designText = designText
+        self.sectionsDraftText = sectionsDraftText
+        self.sections = sections
+        self.exportNotes = exportNotes
+        self.lastUpdated = lastUpdated
+        self.activeStage = activeStage
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        let d = ProductBlueprint.default
+        projectName = try c.decodeIfPresent(String.self, forKey: .projectName) ?? d.projectName
+        overview = try c.decodeIfPresent(String.self, forKey: .overview) ?? d.overview
+        problemsText = try c.decodeIfPresent(String.self, forKey: .problemsText) ?? d.problemsText
+        featuresText = try c.decodeIfPresent(String.self, forKey: .featuresText) ?? d.featuresText
+        dataModelText = try c.decodeIfPresent(String.self, forKey: .dataModelText) ?? d.dataModelText
+        designText = try c.decodeIfPresent(String.self, forKey: .designText) ?? d.designText
+        sectionsDraftText = try c.decodeIfPresent(String.self, forKey: .sectionsDraftText) ?? ""
+        sections = try c.decodeIfPresent([ProductSection].self, forKey: .sections) ?? d.sections
+        exportNotes = try c.decodeIfPresent(String.self, forKey: .exportNotes) ?? ""
+        lastUpdated = try c.decodeIfPresent(Date.self, forKey: .lastUpdated) ?? Date()
+        activeStage = try c.decodeIfPresent(ProductStage.self, forKey: .activeStage) ?? .product
+    }
 }
 
 struct ProjectRecord: Codable, Identifiable, Hashable {
@@ -97,6 +153,7 @@ struct ProjectRecord: Codable, Identifiable, Hashable {
     var createdAt: Date
     var updatedAt: Date
     var approvedStages: [ProductStage]
+    var furthestStageReached: ProductStage
     var blueprint: ProductBlueprint
 
     static func makeNew(title: String, conversationId: String? = nil, overview: String? = nil) -> ProjectRecord {
@@ -112,12 +169,63 @@ struct ProjectRecord: Codable, Identifiable, Hashable {
             createdAt: Date(),
             updatedAt: Date(),
             approvedStages: [],
+            furthestStageReached: .product,
             blueprint: blueprint
         )
     }
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case title
+        case conversationId
+        case createdAt
+        case updatedAt
+        case approvedStages
+        case furthestStageReached
+        case blueprint
+    }
+
+    init(
+        id: String,
+        title: String,
+        conversationId: String?,
+        createdAt: Date,
+        updatedAt: Date,
+        approvedStages: [ProductStage],
+        furthestStageReached: ProductStage,
+        blueprint: ProductBlueprint
+    ) {
+        self.id = id
+        self.title = title
+        self.conversationId = conversationId
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt
+        self.approvedStages = approvedStages
+        self.furthestStageReached = furthestStageReached
+        self.blueprint = blueprint
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(String.self, forKey: .id)
+        title = try c.decode(String.self, forKey: .title)
+        conversationId = try c.decodeIfPresent(String.self, forKey: .conversationId)
+        createdAt = try c.decodeIfPresent(Date.self, forKey: .createdAt) ?? Date()
+        updatedAt = try c.decodeIfPresent(Date.self, forKey: .updatedAt) ?? Date()
+        approvedStages = try c.decodeIfPresent([ProductStage].self, forKey: .approvedStages) ?? []
+        blueprint = try c.decode(ProductBlueprint.self, forKey: .blueprint)
+        furthestStageReached = try c.decodeIfPresent(ProductStage.self, forKey: .furthestStageReached) ?? blueprint.activeStage
+    }
+}
+
+struct PendingProjectPlanning: Codable, Hashable {
+    var conversationId: String
+    var kickoffPrompt: String
+    var createdAt: Date
 }
 
 struct ProjectsStateFile: Codable {
     var selectedProjectId: String?
     var projects: [ProjectRecord]
+    var pendingPlanning: [PendingProjectPlanning]
 }

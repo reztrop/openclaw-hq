@@ -8,11 +8,10 @@ class ProjectsViewModel: ObservableObject {
     @Published var isApproving = false
 
     private let filePath: String
-    private let taskService: TaskService
     private let gatewayService: GatewayService
+    private var pendingPlanningByConversation: [String: PendingProjectPlanning] = [:]
 
-    init(taskService: TaskService, gatewayService: GatewayService, filePath: String = Constants.projectsFilePath) {
-        self.taskService = taskService
+    init(gatewayService: GatewayService, filePath: String = Constants.projectsFilePath) {
         self.gatewayService = gatewayService
         self.filePath = filePath
         load()
@@ -23,10 +22,13 @@ class ProjectsViewModel: ObservableObject {
         return projects.first(where: { $0.id == id })
     }
 
+    var hasProjects: Bool { !projects.isEmpty }
+
     func load() {
         guard FileManager.default.fileExists(atPath: filePath) else {
-            let id = createProject(title: "New Project")
-            selectedProjectId = id
+            projects = []
+            selectedProjectId = nil
+            pendingPlanningByConversation = [:]
             save()
             return
         }
@@ -39,6 +41,7 @@ class ProjectsViewModel: ObservableObject {
             if let state = try? decoder.decode(ProjectsStateFile.self, from: data) {
                 projects = state.projects.sorted(by: { $0.updatedAt > $1.updatedAt })
                 selectedProjectId = state.selectedProjectId ?? projects.first?.id
+                pendingPlanningByConversation = Dictionary(uniqueKeysWithValues: state.pendingPlanning.map { ($0.conversationId, $0) })
                 return
             }
 
@@ -53,6 +56,7 @@ class ProjectsViewModel: ObservableObject {
                     createdAt: Date(),
                     updatedAt: Date(),
                     approvedStages: [],
+                    furthestStageReached: legacy.activeStage,
                     blueprint: legacy
                 )
                 projects = [recovered]
@@ -64,9 +68,10 @@ class ProjectsViewModel: ObservableObject {
 
             throw NSError(domain: "OpenClawHQ", code: 2, userInfo: [NSLocalizedDescriptionKey: "Unsupported projects file format"])
         } catch {
-            projects = [ProjectRecord.makeNew(title: "New Project")]
-            selectedProjectId = projects.first?.id
-            statusMessage = "Failed to load project plans. Started with a fresh project."
+            projects = []
+            selectedProjectId = nil
+            pendingPlanningByConversation = [:]
+            statusMessage = "Failed to load projects."
             save()
         }
     }
@@ -74,7 +79,11 @@ class ProjectsViewModel: ObservableObject {
     func save() {
         do {
             projects.sort { $0.updatedAt > $1.updatedAt }
-            let state = ProjectsStateFile(selectedProjectId: selectedProjectId, projects: projects)
+            let state = ProjectsStateFile(
+                selectedProjectId: selectedProjectId,
+                projects: projects,
+                pendingPlanning: pendingPlanningByConversation.values.sorted(by: { $0.createdAt > $1.createdAt })
+            )
             let parent = URL(fileURLWithPath: filePath).deletingLastPathComponent()
             try FileManager.default.createDirectory(at: parent, withIntermediateDirectories: true)
             let encoder = JSONEncoder()
@@ -83,28 +92,14 @@ class ProjectsViewModel: ObservableObject {
             let data = try encoder.encode(state)
             try data.write(to: URL(fileURLWithPath: filePath), options: .atomic)
         } catch {
-            statusMessage = "Failed to save project plan."
+            statusMessage = "Failed to save project state."
         }
-    }
-
-    @discardableResult
-    func createProject(title: String, conversationId: String? = nil, overview: String? = nil) -> String {
-        let trimmedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
-        let finalTitle = trimmedTitle.isEmpty ? "New Project" : trimmedTitle
-        let record = ProjectRecord.makeNew(title: finalTitle, conversationId: conversationId, overview: overview)
-        projects.insert(record, at: 0)
-        selectedProjectId = record.id
-        save()
-        return record.id
     }
 
     func deleteProject(_ id: String) {
         projects.removeAll { $0.id == id }
         if selectedProjectId == id {
             selectedProjectId = projects.first?.id
-        }
-        if projects.isEmpty {
-            selectedProjectId = createProject(title: "New Project")
         }
         save()
     }
@@ -115,19 +110,36 @@ class ProjectsViewModel: ObservableObject {
         save()
     }
 
-    func registerProjectKickoff(conversationId: String, userPrompt: String) {
-        if let existingIdx = projects.firstIndex(where: { $0.conversationId == conversationId }) {
-            selectedProjectId = projects[existingIdx].id
-            projects[existingIdx].updatedAt = Date()
+    /// Called when user starts planning via chat + [project].
+    func registerProjectPlanningStarted(conversationId: String, userPrompt: String) {
+        let kickoff = PendingProjectPlanning(conversationId: conversationId, kickoffPrompt: cleanedKickoffPrompt(userPrompt), createdAt: Date())
+        pendingPlanningByConversation[conversationId] = kickoff
+        statusMessage = "Project planning started in chat. Project will be created when Jarvis marks scope ready."
+        save()
+    }
+
+    /// Called when Jarvis returns a readiness marker such as [project-ready].
+    func registerProjectScopeReady(conversationId: String, assistantResponse: String) {
+        if let existing = projects.first(where: { $0.conversationId == conversationId }) {
+            selectedProjectId = existing.id
+            pendingPlanningByConversation.removeValue(forKey: conversationId)
+            statusMessage = "Linked to existing project from this planning chat."
             save()
-            statusMessage = "Linked to existing project from Jarvis chat."
             return
         }
 
-        let title = titleFromKickoff(userPrompt)
-        let overview = cleanedKickoffPrompt(userPrompt)
-        _ = createProject(title: title, conversationId: conversationId, overview: overview)
-        statusMessage = "Created new project from [project] chat kickoff."
+        guard let pending = pendingPlanningByConversation[conversationId] else {
+            return
+        }
+
+        let title = titleFromKickoff(pending.kickoffPrompt)
+        let overview = buildOverview(kickoff: pending.kickoffPrompt, assistant: assistantResponse)
+        let record = ProjectRecord.makeNew(title: title, conversationId: conversationId, overview: overview)
+        projects.insert(record, at: 0)
+        selectedProjectId = record.id
+        pendingPlanningByConversation.removeValue(forKey: conversationId)
+        statusMessage = "Project created from scoped planning conversation."
+        save()
     }
 
     func updateProjectTitle(_ title: String) {
@@ -184,57 +196,89 @@ class ProjectsViewModel: ObservableObject {
         guard var project = selectedProject else { return }
         guard !isApproving else { return }
 
-        let currentStage = project.blueprint.activeStage
-        guard let nextStage = currentStage.next else {
-            statusMessage = "Project is already at final stage."
+        // Ensure latest page content is persisted before orchestration.
+        project.updatedAt = Date()
+        project.blueprint.lastUpdated = Date()
+        saveUpdated(project)
+
+        let stageOrder = ProductStage.allCases
+        guard let approvedIndex = stageOrder.firstIndex(of: project.blueprint.activeStage) else { return }
+        let approvedStage = project.blueprint.activeStage
+
+        guard approvedStage != .export else {
+            if !project.approvedStages.contains(.export) {
+                project.approvedStages.append(.export)
+            }
+            saveUpdated(project)
+            statusMessage = "Export finalized."
             return
         }
 
+        let priorFurthestIndex = stageOrder.firstIndex(of: project.furthestStageReached) ?? approvedIndex
+        let regenerationEndIndex = max(priorFurthestIndex, approvedIndex + 1)
+        let targetStages = Array(stageOrder[(approvedIndex + 1)...regenerationEndIndex])
+
         isApproving = true
-        statusMessage = "Dispatching Jarvis to draft \(nextStage.rawValue)..."
+        statusMessage = "Approved \(approvedStage.rawValue). Regenerating downstream stages..."
 
-        let prompt = approvalPrompt(for: project, approvedStage: currentStage, targetStage: nextStage)
+        var latestSessionKey = project.conversationId
+        var regenerated: [ProductStage] = []
 
-        do {
-            let response = try await gatewayService.sendAgentMessage(
-                agentId: "jarvis",
-                message: prompt,
-                sessionKey: project.conversationId,
-                thinkingEnabled: true
+        for targetStage in targetStages {
+            let prompt = approvalPrompt(
+                for: project,
+                approvedStage: approvedStage,
+                targetStage: targetStage,
+                isRegeneration: targetStage != targetStages.first
             )
 
-            let draft = normalizedDraft(response.text)
-            if let sessionKey = response.sessionKey {
-                project.conversationId = sessionKey
+            do {
+                let response = try await gatewayService.sendAgentMessage(
+                    agentId: "jarvis",
+                    message: prompt,
+                    sessionKey: latestSessionKey,
+                    thinkingEnabled: true
+                )
+                if let key = response.sessionKey {
+                    latestSessionKey = key
+                }
+                let draft = normalizedDraft(response.text)
+                applyDraft(draft, for: targetStage, to: &project)
+                regenerated.append(targetStage)
+            } catch {
+                statusMessage = "Approval failed while drafting \(targetStage.rawValue): \(error.localizedDescription)"
+                isApproving = false
+                return
             }
-
-            if !project.approvedStages.contains(currentStage) {
-                project.approvedStages.append(currentStage)
-            }
-
-            switch nextStage {
-            case .dataModel:
-                project.blueprint.dataModelText = draft
-            case .design:
-                project.blueprint.designText = draft
-            case .sections:
-                project.blueprint.sectionsDraftText = draft
-            case .export:
-                project.blueprint.exportNotes = draft
-            case .product:
-                break
-            }
-
-            project.blueprint.activeStage = nextStage
-            project.updatedAt = Date()
-            project.blueprint.lastUpdated = Date()
-            saveUpdated(project)
-
-            statusMessage = "Approved \(currentStage.rawValue). Team drafted \(nextStage.rawValue)."
-        } catch {
-            statusMessage = "Approval failed: \(error.localizedDescription)"
         }
 
+        if !project.approvedStages.contains(approvedStage) {
+            project.approvedStages.append(approvedStage)
+        }
+
+        // Any stage after the approved one is now a regenerated draft and must be re-approved.
+        project.approvedStages.removeAll { stage in
+            guard let idx = stageOrder.firstIndex(of: stage) else { return false }
+            return idx > approvedIndex
+        }
+
+        if let finalStage = regenerated.last {
+            project.blueprint.activeStage = finalStage
+            project.furthestStageReached = stageOrder[max(priorFurthestIndex, stageOrder.firstIndex(of: finalStage) ?? priorFurthestIndex)]
+        } else if let next = approvedStage.next {
+            project.blueprint.activeStage = next
+            project.furthestStageReached = stageOrder[max(priorFurthestIndex, stageOrder.firstIndex(of: next) ?? priorFurthestIndex)]
+        }
+
+        project.updatedAt = Date()
+        project.blueprint.lastUpdated = Date()
+        project.conversationId = latestSessionKey
+        saveUpdated(project)
+
+        let regeneratedNames = regenerated.map { $0.rawValue }.joined(separator: ", ")
+        statusMessage = regenerated.isEmpty
+            ? "Approved \(approvedStage.rawValue)."
+            : "Approved \(approvedStage.rawValue). Regenerated: \(regeneratedNames)."
         isApproving = false
     }
 
@@ -275,20 +319,38 @@ class ProjectsViewModel: ObservableObject {
         """
     }
 
-    private func approvalPrompt(for project: ProjectRecord, approvedStage: ProductStage, targetStage: ProductStage) -> String {
+    private func applyDraft(_ text: String, for stage: ProductStage, to project: inout ProjectRecord) {
+        switch stage {
+        case .dataModel:
+            project.blueprint.dataModelText = text
+        case .design:
+            project.blueprint.designText = text
+        case .sections:
+            project.blueprint.sectionsDraftText = text
+        case .export:
+            project.blueprint.exportNotes = text
+        case .product:
+            break
+        }
+    }
+
+    private func approvalPrompt(for project: ProjectRecord, approvedStage: ProductStage, targetStage: ProductStage, isRegeneration: Bool) -> String {
         let b = project.blueprint
+        let modeLine = isRegeneration
+            ? "Regeneration Mode: true (upstream edits were approved; regenerate this stage accordingly)"
+            : "Regeneration Mode: false"
 
         return """
         [project-approval]
         Project: \(project.title)
         Approved Stage: \(approvedStage.rawValue)
         Target Stage To Draft: \(targetStage.rawValue)
+        \(modeLine)
 
         You are Jarvis coordinating Scope, Atlas, Matrix, and Prism.
-        The approved content below is final. Use it to generate a strong first-pass draft for ONLY the target stage.
+        Use the approved inputs below and produce only the requested stage draft.
 
-        Approved Product Definition:
-        Overview:
+        Product Overview:
         \(b.overview)
 
         Problems & Solutions:
@@ -297,20 +359,23 @@ class ProjectsViewModel: ObservableObject {
         Key Features:
         \(b.featuresText)
 
-        Existing Data Model:
+        Data Model:
         \(b.dataModelText)
 
-        Existing Design:
+        Design:
         \(b.designText)
 
-        Existing Sections Draft:
+        Sections Draft:
         \(b.sectionsDraftText)
 
-        Response rules:
-        - Return only the draft content for \(targetStage.rawValue).
-        - Be concrete and execution-ready.
-        - Include ownership hints (Jarvis/Scope/Atlas/Matrix/Prism) where useful.
-        - Do not include wrapper commentary or markdown code fences.
+        Export Notes:
+        \(b.exportNotes)
+
+        Rules:
+        - Return only content for \(targetStage.rawValue).
+        - No wrapper commentary, no markdown fences.
+        - Be concrete and implementation-ready.
+        - Include agent ownership hints where helpful.
         """
     }
 
@@ -325,6 +390,17 @@ class ProjectsViewModel: ObservableObject {
     private func cleanedKickoffPrompt(_ raw: String) -> String {
         raw.replacingOccurrences(of: "[project]", with: "", options: [.caseInsensitive])
             .trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private func buildOverview(kickoff: String, assistant: String) -> String {
+        let cleanKickoff = cleanedKickoffPrompt(kickoff)
+        let cleanAssistant = assistant
+            .replacingOccurrences(of: "[project-ready]", with: "", options: [.caseInsensitive])
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+
+        if cleanAssistant.isEmpty { return cleanKickoff }
+        if cleanKickoff.isEmpty { return cleanAssistant }
+        return "\(cleanKickoff)\n\nScoped Summary:\n\(cleanAssistant)"
     }
 
     private func titleFromKickoff(_ raw: String) -> String {
