@@ -12,20 +12,30 @@ class TasksViewModel: ObservableObject {
     @Published var editingTask: TaskItem?
     @Published var showingNewTask = false
     var onTaskMovedToDone: ((TaskItem) -> Void)?
+    var onTaskMovedToInProgress: ((TaskItem) -> Void)?
 
     private let taskService: TaskService
     private var cancellables = Set<AnyCancellable>()
+    private var knownInProgressTaskIds: Set<UUID> = []
 
     init(taskService: TaskService) {
         self.taskService = taskService
         taskService.$tasks
             .receive(on: DispatchQueue.main)
-            .sink { [weak self] _ in self?.objectWillChange.send() }
+            .sink { [weak self] tasks in
+                self?.reconcileInProgressTransitions(tasks: tasks)
+                self?.objectWillChange.send()
+            }
             .store(in: &cancellables)
 
         taskService.$isExecutionPaused
             .receive(on: DispatchQueue.main)
-            .sink { [weak self] _ in self?.objectWillChange.send() }
+            .sink { [weak self] paused in
+                if paused == false {
+                    self?.triggerInProgressKickoffForCurrentTasks()
+                }
+                self?.objectWillChange.send()
+            }
             .store(in: &cancellables)
     }
 
@@ -139,5 +149,27 @@ class TasksViewModel: ObservableObject {
         guard let assignee else { return nil }
         let trimmed = assignee.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         return trimmed.isEmpty ? nil : trimmed
+    }
+
+    private func reconcileInProgressTransitions(tasks: [TaskItem]) {
+        let current = Set(
+            tasks
+                .filter { $0.status == .inProgress && !$0.isArchived }
+                .map(\.id)
+        )
+        let newlyEntered = current.subtracting(knownInProgressTaskIds)
+        knownInProgressTaskIds = current
+
+        guard !taskService.isExecutionPaused else { return }
+        for id in newlyEntered {
+            guard let task = tasks.first(where: { $0.id == id }) else { continue }
+            onTaskMovedToInProgress?(task)
+        }
+    }
+
+    private func triggerInProgressKickoffForCurrentTasks() {
+        for task in taskService.tasks where task.status == .inProgress && !task.isArchived {
+            onTaskMovedToInProgress?(task)
+        }
     }
 }

@@ -14,15 +14,19 @@ class AgentsViewModel: ObservableObject {
 
     let gatewayService: GatewayService
     let settingsService: SettingsService
+    let taskService: TaskService
     private var cancellables = Set<AnyCancellable>()
     private var autoRefreshTask: Task<Void, Never>?
+    private var runtimeBusyAgents: Set<String> = []
 
-    init(gatewayService: GatewayService, settingsService: SettingsService) {
+    init(gatewayService: GatewayService, settingsService: SettingsService, taskService: TaskService) {
         self.gatewayService = gatewayService
         self.settingsService = settingsService
+        self.taskService = taskService
         subscribeToEvents()
         subscribeToConnectionState()
         subscribeToProviderSettings()
+        subscribeToTaskState()
         startAutoRefresh()
     }
 
@@ -108,6 +112,7 @@ class AgentsViewModel: ObservableObject {
             }
 
             agents = updatedAgents
+            applyTaskDrivenStatuses()
 
             // Overlay with status from health/presence
             if let status = try? await gatewayService.fetchStatus() {
@@ -1008,26 +1013,25 @@ class AgentsViewModel: ObservableObject {
         case "lifecycle":
             switch phase {
             case "start":
-                agents[idx].status = .busy
+                runtimeBusyAgents.insert(agentId)
                 agents[idx].currentActivity = "Working..."
             case "end":
-                agents[idx].status = .online
+                runtimeBusyAgents.remove(agentId)
                 agents[idx].currentActivity = nil
             case "error":
-                agents[idx].status = .online
+                runtimeBusyAgents.remove(agentId)
                 agents[idx].currentActivity = nil
             default:
                 break
             }
         case "assistant":
             // Text is streaming — agent is active
-            if agents[idx].status != .busy {
-                agents[idx].status = .busy
-            }
+            runtimeBusyAgents.insert(agentId)
         default:
             break
         }
         agents[idx].lastSeen = Date()
+        applyTaskDrivenStatuses()
     }
 
     /// Extracts agentId from a session key like "agent:{agentId}:{rest}"
@@ -1044,6 +1048,65 @@ class AgentsViewModel: ObservableObject {
         // Agent status is driven entirely by `agent` lifecycle events.
         // No-op: presence events don't contain per-agent status info.
         _ = data
+    }
+
+    private func subscribeToTaskState() {
+        taskService.$tasks
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                self?.applyTaskDrivenStatuses()
+            }
+            .store(in: &cancellables)
+
+        taskService.$isExecutionPaused
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                self?.applyTaskDrivenStatuses()
+            }
+            .store(in: &cancellables)
+    }
+
+    private func applyTaskDrivenStatuses() {
+        for i in agents.indices {
+            if !gatewayService.isConnected {
+                agents[i].status = .offline
+                continue
+            }
+
+            let id = agents[i].id.lowercased()
+            let hasRuntimeBusy = runtimeBusyAgents.contains(id)
+            let hasInProgressTask = hasActiveInProgressTask(for: agents[i])
+
+            if hasRuntimeBusy || hasInProgressTask {
+                agents[i].status = .busy
+                if agents[i].currentActivity == nil || agents[i].currentActivity?.isEmpty == true {
+                    agents[i].currentActivity = hasInProgressTask ? "Executing in-progress task" : "Working..."
+                }
+            } else {
+                agents[i].status = .online
+                if agents[i].currentActivity == "Executing in-progress task" || agents[i].currentActivity == "Working..." {
+                    agents[i].currentActivity = nil
+                }
+            }
+        }
+    }
+
+    private func hasActiveInProgressTask(for agent: Agent) -> Bool {
+        if taskService.isExecutionPaused { return false }
+        let normalizedId = normalizedAgentToken(agent.id)
+        let normalizedName = normalizedAgentToken(agent.name)
+
+        return taskService.tasks.contains { task in
+            guard !task.isArchived, task.status == .inProgress else { return false }
+            guard let assigned = normalizedAgentToken(task.assignedAgent) else { return false }
+            return assigned == normalizedId || assigned == normalizedName
+        }
+    }
+
+    private func normalizedAgentToken(_ value: String?) -> String? {
+        guard let value else { return nil }
+        let lower = value.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        return lower.isEmpty ? nil : lower
     }
 }
 

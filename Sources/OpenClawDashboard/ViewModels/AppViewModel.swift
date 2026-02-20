@@ -37,7 +37,7 @@ class AppViewModel: ObservableObject {
     let settingsService = SettingsService()
     let gatewayService = GatewayService()
     let taskService = TaskService()
-    lazy var agentsViewModel = AgentsViewModel(gatewayService: gatewayService, settingsService: settingsService)
+    lazy var agentsViewModel = AgentsViewModel(gatewayService: gatewayService, settingsService: settingsService, taskService: taskService)
     lazy var chatViewModel = ChatViewModel(gatewayService: gatewayService, settingsService: settingsService)
     lazy var projectsViewModel = ProjectsViewModel(gatewayService: gatewayService, taskService: taskService)
     lazy var tasksViewModel = TasksViewModel(taskService: taskService)
@@ -69,6 +69,12 @@ class AppViewModel: ObservableObject {
         tasksViewModel.onTaskMovedToDone = { [weak self] task in
             guard let self else { return }
             self.projectsViewModel.handleTaskMovedToDone(task)
+        }
+        tasksViewModel.onTaskMovedToInProgress = { [weak self] task in
+            guard let self else { return }
+            Task { [weak self] in
+                await self?.startImplementation(for: task)
+            }
         }
 
         // Set up notifications
@@ -138,5 +144,40 @@ class AppViewModel: ObservableObject {
         await agentsViewModel.refreshAgents()
         await skillsViewModel.refreshSkills()
         await projectsViewModel.reconcilePendingPlanningFromChatHistory()
+    }
+
+    private func startImplementation(for task: TaskItem) async {
+        guard !taskService.isExecutionPaused else { return }
+        guard task.status == .inProgress else { return }
+        guard let agent = task.assignedAgent?.trimmingCharacters(in: .whitespacesAndNewlines), !agent.isEmpty else { return }
+
+        let projectLine: String = {
+            if let projectName = task.projectName, !projectName.isEmpty {
+                return "Project: \(projectName)"
+            }
+            return "Project: Unspecified"
+        }()
+
+        let description = task.description?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let detailLine = (description?.isEmpty == false) ? "Task details: \(description!)" : "Task details: none"
+
+        let kickoff = """
+        [task-start]
+        \(projectLine)
+        Task ID: \(task.id.uuidString)
+        Task: \(task.title)
+        \(detailLine)
+
+        Begin implementation immediately.
+        Before doing new work, first check whether this task already has partial progress and continue from that state.
+        Keep updates concise and execution-focused.
+        """
+
+        _ = try? await gatewayService.sendAgentMessage(
+            agentId: agent.lowercased(),
+            message: kickoff,
+            sessionKey: nil,
+            thinkingEnabled: true
+        )
     }
 }

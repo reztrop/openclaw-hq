@@ -2,7 +2,6 @@ import SwiftUI
 
 struct TasksView: View {
     @EnvironmentObject var tasksVM: TasksViewModel
-    @EnvironmentObject var gatewayService: GatewayService
     @State private var selectedTaskForView: TaskItem?
 
     var body: some View {
@@ -111,10 +110,7 @@ struct TasksView: View {
                 // Surface queue displacement for visibility.
                 print("[Tasks] Displaced in-progress task to Queue: \(displaced.title)")
             }
-
-            if let started = outcome.startedTask {
-                Task { await beginImplementation(for: started) }
-            }
+            _ = outcome.startedTask
         }
         return handledAny
     }
@@ -124,43 +120,6 @@ struct TasksView: View {
         if let displaced = outcome.displacedTask {
             print("[Tasks] Displaced in-progress task to Queue: \(displaced.title)")
         }
-        if let started = outcome.startedTask {
-            Task { await beginImplementation(for: started) }
-        }
-    }
-
-    private func beginImplementation(for task: TaskItem) async {
-        guard !tasksVM.isExecutionPaused else { return }
-        guard task.status == .inProgress else { return }
-        guard let agent = task.assignedAgent?.trimmingCharacters(in: .whitespacesAndNewlines), !agent.isEmpty else { return }
-
-        let projectLine: String = {
-            if let projectName = task.projectName, !projectName.isEmpty {
-                return "Project: \(projectName)"
-            }
-            return "Project: Unspecified"
-        }()
-
-        let description = task.description?.trimmingCharacters(in: .whitespacesAndNewlines)
-        let detailLine = (description?.isEmpty == false) ? "Task details: \(description!)" : "Task details: none"
-
-        let kickoff = """
-        [task-start]
-        \(projectLine)
-        Task ID: \(task.id.uuidString)
-        Task: \(task.title)
-        \(detailLine)
-
-        Begin implementation immediately.
-        Before doing new work, first check whether this task already has partial progress and continue from that state.
-        Keep updates concise and execution-focused.
-        """
-
-        _ = try? await gatewayService.sendAgentMessage(
-            agentId: agent.lowercased(),
-            message: kickoff,
-            sessionKey: nil,
-            thinkingEnabled: true
-        )
+        _ = outcome.startedTask
     }
 }
