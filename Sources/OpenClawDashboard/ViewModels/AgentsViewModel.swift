@@ -1075,38 +1075,19 @@ class AgentsViewModel: ObservableObject {
 
             let id = agents[i].id.lowercased()
             let hasRuntimeBusy = runtimeBusyAgents.contains(id)
-            let hasInProgressTask = hasActiveInProgressTask(for: agents[i])
 
-            if hasRuntimeBusy || hasInProgressTask {
+            if hasRuntimeBusy {
                 agents[i].status = .busy
                 if agents[i].currentActivity == nil || agents[i].currentActivity?.isEmpty == true {
-                    agents[i].currentActivity = hasInProgressTask ? "Executing in-progress task" : "Working..."
+                    agents[i].currentActivity = "Working..."
                 }
             } else {
                 agents[i].status = .online
-                if agents[i].currentActivity == "Executing in-progress task" || agents[i].currentActivity == "Working..." {
+                if agents[i].currentActivity == "Working..." {
                     agents[i].currentActivity = nil
                 }
             }
         }
-    }
-
-    private func hasActiveInProgressTask(for agent: Agent) -> Bool {
-        if taskService.isExecutionPaused { return false }
-        let normalizedId = normalizedAgentToken(agent.id)
-        let normalizedName = normalizedAgentToken(agent.name)
-
-        return taskService.tasks.contains { task in
-            guard !task.isArchived, task.status == .inProgress else { return false }
-            guard let assigned = normalizedAgentToken(task.assignedAgent) else { return false }
-            return assigned == normalizedId || assigned == normalizedName
-        }
-    }
-
-    private func normalizedAgentToken(_ value: String?) -> String? {
-        guard let value else { return nil }
-        let lower = value.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        return lower.isEmpty ? nil : lower
     }
 }
 

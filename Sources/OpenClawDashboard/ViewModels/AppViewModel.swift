@@ -47,6 +47,10 @@ class AppViewModel: ObservableObject {
     lazy var activityLogViewModel = ActivityLogViewModel(gatewayService: gatewayService)
     private var notificationService: NotificationService?
     private var activeTaskRuns: Set<UUID> = []
+    private var activeAgentRuns: Set<String> = []
+    private var taskNextEligibleAt: [UUID: Date] = [:]
+    private var orchestrationLoopTask: Task<Void, Never>?
+    private var isRunningOrchestrationTick = false
 
     private var cancellables = Set<AnyCancellable>()
 
@@ -111,6 +115,26 @@ class AppViewModel: ObservableObject {
             }
             .store(in: &cancellables)
 
+        taskService.$tasks
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                Task { [weak self] in
+                    await self?.runTaskOrchestrationTick()
+                }
+            }
+            .store(in: &cancellables)
+
+        taskService.$isExecutionPaused
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                Task { [weak self] in
+                    await self?.runTaskOrchestrationTick()
+                }
+            }
+            .store(in: &cancellables)
+
+        startTaskOrchestrationLoop()
+
         // Check if onboarding is needed
         if !settingsService.settings.onboardingComplete {
             showOnboarding = true
@@ -159,17 +183,19 @@ class AppViewModel: ObservableObject {
         guard let current = taskService.tasks.first(where: { $0.id == task.id }) else { return }
         guard current.status == .inProgress, !current.isArchived else { return }
         guard let agent = current.assignedAgent?.trimmingCharacters(in: .whitespacesAndNewlines), !agent.isEmpty else { return }
+        let agentToken = agent.lowercased()
         guard !activeTaskRuns.contains(current.id) else { return }
+        guard !activeAgentRuns.contains(agentToken) else { return }
         activeTaskRuns.insert(current.id)
+        activeAgentRuns.insert(agentToken)
 
         let sessionKey = current.executionSessionKey?.isEmpty == false
             ? (current.executionSessionKey ?? "")
-            : "agent:\(agent.lowercased()):task:\(current.id.uuidString.lowercased())"
+            : "agent:\(agentToken):task:\(current.id.uuidString.lowercased())"
         taskService.mutateTask(current.id) { mutable in
             mutable.executionSessionKey = sessionKey
-            mutable.lastEvidence = "Kickoff sent to \(agent) at \(Date().shortString)"
-            mutable.lastEvidenceAt = Date()
         }
+        taskService.appendTaskEvidence(current.id, text: "Kickoff sent to \(agent) at \(Date().shortString)")
 
         let projectLine: String = {
             if let projectName = current.projectName, !projectName.isEmpty {
@@ -190,14 +216,21 @@ class AppViewModel: ObservableObject {
 
         Begin implementation immediately.
         Before doing new work, first check whether this task already has partial progress and continue from that state.
-        Keep updates concise and execution-focused.
+        Keep updates concise and execution-focused. Work autonomously to completion.
+        End with exactly one marker line:
+        [task-complete] if done,
+        [task-continue] if more work remains,
+        [task-blocked] if blocked waiting on dependency.
         """
 
-        defer { activeTaskRuns.remove(current.id) }
+        defer {
+            activeTaskRuns.remove(current.id)
+            activeAgentRuns.remove(agentToken)
+        }
 
         do {
             let response = try await gatewayService.sendAgentMessage(
-                agentId: agent.lowercased(),
+                agentId: agentToken,
                 message: kickoff,
                 sessionKey: sessionKey,
                 thinkingEnabled: true
@@ -208,15 +241,156 @@ class AppViewModel: ObservableObject {
             } else {
                 taskService.appendTaskEvidence(current.id, text: "Run completed with no assistant text.")
             }
+
+            let outcome = taskOutcome(from: finalText)
+            switch outcome {
+            case .complete:
+                taskService.moveTask(current.id, to: .done)
+                if let doneTask = taskService.tasks.first(where: { $0.id == current.id }) {
+                    projectsViewModel.handleTaskMovedToDone(doneTask)
+                }
+            case .blocked:
+                taskService.moveTask(current.id, to: .queued)
+                setRetryCooldown(taskId: current.id, seconds: 45)
+            case .continueWork:
+                taskService.moveTask(current.id, to: .queued)
+                setRetryCooldown(taskId: current.id, seconds: 10)
+            }
         } catch {
             taskService.appendTaskEvidence(current.id, text: "Run error: \(error.localizedDescription)")
+            taskService.moveTask(current.id, to: .queued)
+            setRetryCooldown(taskId: current.id, seconds: 20)
         }
+
+        await runTaskOrchestrationTick()
+    }
+
+    private enum TaskOutcome {
+        case complete
+        case continueWork
+        case blocked
+    }
+
+    private func taskOutcome(from response: String) -> TaskOutcome {
+        let lower = response.lowercased()
+        if lower.contains("[task-complete]") || lower.contains("status: complete") {
+            return .complete
+        }
+        if lower.contains("[task-blocked]") || lower.contains("status: blocked") {
+            return .blocked
+        }
+        if lower.contains("[task-continue]") || lower.contains("status: continue") {
+            return .continueWork
+        }
+        if lower.contains("completed") || lower.contains("done") {
+            return .complete
+        }
+        return .continueWork
+    }
+
+    private func startTaskOrchestrationLoop() {
+        orchestrationLoopTask?.cancel()
+        orchestrationLoopTask = Task { [weak self] in
+            guard let self else { return }
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(3))
+                await self.runTaskOrchestrationTick()
+            }
+        }
+    }
+
+    private func runTaskOrchestrationTick() async {
+        guard !isRunningOrchestrationTick else { return }
+        guard gatewayService.isConnected else { return }
+        guard !taskService.isExecutionPaused else { return }
+        isRunningOrchestrationTick = true
+        defer { isRunningOrchestrationTick = false }
+
+        // Promote newly created Ready tasks into the execution queue.
+        let readyTasks = taskService.tasks.filter { !$0.isArchived && $0.status == .scheduled }
+        for task in readyTasks {
+            taskService.moveTask(task.id, to: .queued)
+            taskService.appendTaskEvidence(task.id, text: "Queued by orchestrator at \(Date().shortString)")
+        }
+
+        let now = Date()
+        let sortedTasks = taskService.tasks
+            .filter { !$0.isArchived }
+            .sorted(by: taskPriorityComparator)
+
+        var reservedAgents = activeAgentRuns
+
+        // Resume orphaned in-progress tasks first.
+        let stalledInProgress = sortedTasks.filter {
+            $0.status == .inProgress && !activeTaskRuns.contains($0.id)
+        }
+        for task in stalledInProgress {
+            guard isEligibleToRun(task.id, now: now) else { continue }
+            guard let agent = normalizedAgent(task.assignedAgent) else { continue }
+            guard !reservedAgents.contains(agent) else { continue }
+            reservedAgents.insert(agent)
+            Task { [weak self] in
+                await self?.startImplementation(for: task)
+            }
+        }
+
+        // Start queued tasks for free agents (one task per agent at a time).
+        let queuedTasks = sortedTasks.filter { $0.status == .queued }
+        for task in queuedTasks {
+            guard isEligibleToRun(task.id, now: now) else { continue }
+            guard let agent = normalizedAgent(task.assignedAgent) else { continue }
+            guard !reservedAgents.contains(agent) else { continue }
+            reservedAgents.insert(agent)
+            taskService.moveTask(task.id, to: .inProgress)
+            taskService.appendTaskEvidence(task.id, text: "Dequeued to In Progress at \(Date().shortString)")
+            Task { [weak self] in
+                await self?.startImplementation(for: task)
+            }
+        }
+    }
+
+    private func taskPriorityComparator(_ lhs: TaskItem, _ rhs: TaskItem) -> Bool {
+        let lRank = priorityRank(lhs.priority)
+        let rRank = priorityRank(rhs.priority)
+        if lRank != rRank { return lRank < rRank }
+        if lhs.updatedAt != rhs.updatedAt { return lhs.updatedAt < rhs.updatedAt }
+        return lhs.createdAt < rhs.createdAt
+    }
+
+    private func priorityRank(_ priority: TaskPriority) -> Int {
+        switch priority {
+        case .urgent: return 0
+        case .high: return 1
+        case .medium: return 2
+        case .low: return 3
+        }
+    }
+
+    private func normalizedAgent(_ value: String?) -> String? {
+        guard let value else { return nil }
+        let token = value.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        return token.isEmpty ? nil : token
+    }
+
+    private func isEligibleToRun(_ taskId: UUID, now: Date) -> Bool {
+        if let next = taskNextEligibleAt[taskId] {
+            return now >= next
+        }
+        return true
+    }
+
+    private func setRetryCooldown(taskId: UUID, seconds: TimeInterval) {
+        taskNextEligibleAt[taskId] = Date().addingTimeInterval(seconds)
+    }
+
+    deinit {
+        orchestrationLoopTask?.cancel()
     }
 
     private func handleTaskExecutionEvent(_ event: [String: Any]) {
         guard let sessionKey = event["sessionKey"] as? String, !sessionKey.isEmpty else { return }
         guard let task = taskService.tasks.first(where: {
-            $0.status == .inProgress && !$0.isArchived && $0.executionSessionKey == sessionKey
+            ($0.status == .inProgress || $0.status == .queued) && !$0.isArchived && $0.executionSessionKey == sessionKey
         }) else { return }
 
         let stream = event["stream"] as? String ?? ""
