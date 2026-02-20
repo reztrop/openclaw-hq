@@ -10,6 +10,7 @@ struct TaskColumn: View {
     let onEdit: (TaskItem) -> Void
     let onDelete: (UUID) -> Void
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var isTargeted = false
 
     var body: some View {
@@ -73,8 +74,12 @@ struct TaskColumn: View {
         .dropDestination(for: TaskItem.self) { items, _ in
             onDrop(items)
         } isTargeted: { targeted in
-            withAnimation(.easeOut(duration: 0.2)) {
+            if reduceMotion {
                 isTargeted = targeted
+            } else {
+                withAnimation(.easeOut(duration: 0.2)) {
+                    isTargeted = targeted
+                }
             }
         }
     }
