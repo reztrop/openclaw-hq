@@ -33,12 +33,13 @@ enum TaskIssueExtractor {
             guard !isIssueHeading(lowered) else { continue }
             guard !isIssueResolvedSignal(lowered) else { continue }
             guard !TaskIssueExtractor.isPassingStatusSignal(lowered) else { continue }
+            guard !isVerificationStatusSignal(lowered) else { continue }
             guard !isExternalDependencySignal(lowered) else { continue }
             if line.count < 12 { continue }
             issues.append(line)
         }
 
-        if issues.isEmpty && containsIssueSignal(lower) && !isIssueNegated(lower) && !isIssueResolvedSignal(lower) && !TaskIssueExtractor.isPassingStatusSignal(lower) && !isExternalDependencySignal(lower) {
+        if issues.isEmpty && containsIssueSignal(lower) && !isIssueNegated(lower) && !isIssueResolvedSignal(lower) && !TaskIssueExtractor.isPassingStatusSignal(lower) && !isVerificationStatusSignal(lower) && !isExternalDependencySignal(lower) {
             let summary = contentOnly
                 .replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
                 .trimmingCharacters(in: .whitespacesAndNewlines)
@@ -117,6 +118,17 @@ enum TaskIssueExtractor {
         return passingSignals.contains { normalized.contains($0) }
     }
 
+    static func isVerificationStatusSignal(_ text: String) -> Bool {
+        let normalized = text.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        let hasCheckPrefix = normalized.hasPrefix("checked ") || normalized.hasPrefix("check: ")
+        let hasConfirmation = normalized.contains("confirmed")
+        let confirmsExistingPath = normalized.contains("already exists") || normalized.contains("exists in")
+        let confirmsServiceBoundary = normalized.contains("remains in") || normalized.contains("delegation path")
+
+        return hasCheckPrefix && hasConfirmation && (confirmsExistingPath || confirmsServiceBoundary)
+    }
+
     static func isExternalDependencySignal(_ text: String) -> Bool {
         let normalized = text
             .replacingOccurrences(of: "-", with: " ")
@@ -127,7 +139,8 @@ enum TaskIssueExtractor {
         let externalSignals = [
             "blocked by host permission",
             "blocked by host permissions",
-            "host level ui automation permissions required",
+            "host level ui automation permissions",
+            "host-level ui automation permissions",
             "dependency: host level",
             "screen recording permission",
             "accessibility permission",
@@ -143,11 +156,19 @@ enum TaskIssueExtractor {
             || normalized.contains("host permissions")
             || normalized.contains("host permiss")
 
+        let hasHostLevelUiAutomationPermission = normalized.contains("host level")
+            && normalized.contains("ui automation")
+            && normalized.contains("permission")
+
         let missingHostPermission = hasHostPermissionStem && normalized.contains("missing")
         let hostPermissionBlocker = hasHostPermissionStem && normalized.contains("blocker")
         let blockedByHostPermission = hasHostPermissionStem && normalized.contains("blocked")
         let requiredHostPermission = hasHostPermissionStem && normalized.contains("required")
 
-        return missingHostPermission || hostPermissionBlocker || blockedByHostPermission || requiredHostPermission
+        return missingHostPermission
+            || hostPermissionBlocker
+            || blockedByHostPermission
+            || requiredHostPermission
+            || hasHostLevelUiAutomationPermission
     }
 }

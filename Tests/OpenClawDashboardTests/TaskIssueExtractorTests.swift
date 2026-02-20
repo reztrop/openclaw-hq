@@ -98,4 +98,14 @@ final class TaskIssueExtractorTests: XCTestCase {
         XCTAssertEqual(issues.count, 1)
         XCTAssertEqual(issues.first, "EV-1300-002 (FAIL): task-1300 regression checks complete with keyboard trap issue in model picker")
     }
+
+    func testExtractIssuesIgnoresCheckedAndConfirmedDelegationStatus() {
+        let response = """
+        Checked for prior partial progress first (`git status` clean) and confirmed the recurring-issue delegation path already exists in AppViewModel and service orchestration remains in TaskInterventionService.
+        """
+
+        let issues = TaskIssueExtractor.extractIssues(from: response)
+
+        XCTAssertTrue(issues.isEmpty)
+    }
 }
