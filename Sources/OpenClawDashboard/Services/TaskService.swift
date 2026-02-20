@@ -47,8 +47,11 @@ class TaskService: ObservableObject {
 
     func loadTasks() {
         // IMPORTANT: Never overwrite a user's tasks with sample data.
-        // If the file is missing, start empty.
+        // If the file is missing, recover from latest valid backup when possible.
         guard FileManager.default.fileExists(atPath: filePath) else {
+            if recoverTasksFromBackupIfPossible() {
+                return
+            }
             tasks = []
             lastTasksFileModificationDate = fileModificationDate(at: filePath)
             return
@@ -73,7 +76,11 @@ class TaskService: ObservableObject {
                 print("[TaskService] Failed to preserve unreadable tasks file: \(error)")
             }
 
-            print("[TaskService] Failed to load tasks (starting empty): \(error)")
+            if recoverTasksFromBackupIfPossible() {
+                return
+            }
+
+            print("[TaskService] Failed to load tasks (no valid backup found, starting empty): \(error)")
             tasks = []
             lastTasksFileModificationDate = fileModificationDate(at: filePath)
         }
@@ -163,6 +170,40 @@ class TaskService: ObservableObject {
     private func fileModificationDate(at path: String) -> Date? {
         guard let attrs = try? FileManager.default.attributesOfItem(atPath: path) else { return nil }
         return attrs[.modificationDate] as? Date
+    }
+
+    /// Attempts to restore tasks from the newest valid backup/corrupt snapshot.
+    @discardableResult
+    private func recoverTasksFromBackupIfPossible() -> Bool {
+        let workspaceDir = URL(fileURLWithPath: filePath).deletingLastPathComponent().path
+        guard let entries = try? FileManager.default.contentsOfDirectory(atPath: workspaceDir) else { return false }
+
+        let candidates = entries
+            .filter { $0.hasPrefix("tasks.json.bak-") || $0.hasPrefix("tasks.json.corrupt-") }
+            .map { "\(workspaceDir)/\($0)" }
+            .sorted { lhs, rhs in
+                let lDate = fileModificationDate(at: lhs) ?? .distantPast
+                let rDate = fileModificationDate(at: rhs) ?? .distantPast
+                return lDate > rDate
+            }
+
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+
+        for candidate in candidates {
+            guard let data = try? Data(contentsOf: URL(fileURLWithPath: candidate)),
+                  let recovered = try? decoder.decode([TaskItem].self, from: data),
+                  !recovered.isEmpty else {
+                continue
+            }
+            tasks = recovered
+            _ = enforceSingleInProgressPerAgent()
+            saveTasks()
+            print("[TaskService] Recovered tasks from backup: \(candidate)")
+            return true
+        }
+
+        return false
     }
 
     func setExecutionPaused(_ paused: Bool) {
