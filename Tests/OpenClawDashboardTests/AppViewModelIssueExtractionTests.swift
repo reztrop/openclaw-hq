@@ -106,5 +106,16 @@ final class AppViewModelIssueExtractionTests: XCTestCase {
         let issues = TaskIssueExtractor.extractIssues(from: response)
         XCTAssertTrue(issues.isEmpty)
     }
+
+    func testExtractIssuesIgnoresPeekabooNotGrantedPermissionDetails() {
+        let response = """
+        Issue: Hard blocker remains unchanged: host-level UI automation permissions are still missing (`peekaboo`: Screen Recording Not Granted, Accessibility Not Granted), so compact/default/wide tab evidence capture cannot execute.
+        Dependency: host-level UI automation permissions must be granted before matrix capture.
+        [task-blocked]
+        """
+
+        let issues = TaskIssueExtractor.extractIssues(from: response)
+        XCTAssertTrue(issues.isEmpty)
+    }
 }
 

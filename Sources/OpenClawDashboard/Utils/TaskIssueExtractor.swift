@@ -158,7 +158,9 @@ enum TaskIssueExtractor {
             "host-level ui automation permissions",
             "dependency: host level",
             "screen recording permission",
+            "screen recording not granted",
             "accessibility permission",
+            "accessibility not granted",
             "peekaboo permission",
             "peekaboo permissions"
         ]
