@@ -132,6 +132,18 @@ struct EditAgentView: View {
                         ModelPickerView(agentId: agent.id, selectedModelId: $selectedModelId)
                             .environmentObject(agentsVM)
                             .environmentObject(gatewayService)
+                        HStack(spacing: 8) {
+                            let recommended = agentsVM.recommendedDefaultModelId(agentName: agentName, identityHint: identityContent)
+                            Text("Recommended: \(recommended)")
+                                .font(.caption2)
+                                .foregroundColor(Theme.textMuted)
+                            Spacer()
+                            Button("Use Recommended") {
+                                selectedModelId = recommended
+                            }
+                            .buttonStyle(.bordered)
+                            .controlSize(.small)
+                        }
                     }
 
                     Toggle(isOn: $canCommunicateWithAgents) {

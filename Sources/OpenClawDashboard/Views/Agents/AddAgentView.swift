@@ -82,6 +82,8 @@ struct CreateAgentForm: View {
     @State private var idleImagePath: String? = nil
     @State private var isCreating = false
     @State private var createError: String?
+    @State private var modelAutoSuggested = true
+    @State private var suppressModelChangeTracking = false
     @FocusState private var isEmojiFieldFocused: Bool
 
     private let commonEmojis = ["🤖", "🧠", "🔍", "🧩", "📐", "🗺️", "⚡", "🎯", "🚀", "💡", "🔮", "🌟", "🦊", "🐉", "🦁"]
@@ -157,6 +159,11 @@ struct CreateAgentForm: View {
                     ModelPickerView(agentId: "", selectedModelId: $selectedModelId)
                         .environmentObject(agentsVM)
                         .environmentObject(gatewayService)
+                    if !agentName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                        Text("Recommended: \(agentsVM.recommendedDefaultModelId(agentName: agentName, identityHint: identityContent))")
+                            .font(.caption2)
+                            .foregroundColor(Theme.textMuted)
+                    }
                 }
 
                 Toggle(isOn: $canCommunicateWithAgents) {
@@ -259,6 +266,22 @@ struct CreateAgentForm: View {
             }
             .padding(24)
         }
+        .onAppear {
+            Task {
+                await agentsVM.loadModels()
+                applyRecommendedModel(force: true)
+            }
+        }
+        .onChange(of: agentName) { _, _ in
+            applyRecommendedModel()
+        }
+        .onChange(of: identityContent) { _, _ in
+            applyRecommendedModel()
+        }
+        .onChange(of: selectedModelId) { _, _ in
+            guard !suppressModelChangeTracking else { return }
+            modelAutoSuggested = false
+        }
     }
 
     private func createAgent() async {
@@ -281,6 +304,17 @@ struct CreateAgentForm: View {
             dismiss()
         } catch {
             createError = error.localizedDescription
+        }
+    }
+
+    private func applyRecommendedModel(force: Bool = false) {
+        guard force || modelAutoSuggested else { return }
+        let recommended = agentsVM.recommendedDefaultModelId(agentName: agentName, identityHint: identityContent)
+        guard selectedModelId?.caseInsensitiveCompare(recommended) != .orderedSame else { return }
+        suppressModelChangeTracking = true
+        selectedModelId = recommended
+        DispatchQueue.main.async {
+            suppressModelChangeTracking = false
         }
     }
 

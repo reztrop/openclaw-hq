@@ -124,6 +124,7 @@ class AgentsViewModel: ObservableObject {
             updateTokenCounts(from: sessions)
 
             await migrateSparkModelsIfNeeded()
+            await applyRecommendedModelsForCoreAgentsIfNeeded()
 
         } catch {
             print("[AgentsVM] Failed to refresh: \(error)")
@@ -945,12 +946,113 @@ class AgentsViewModel: ObservableObject {
     }
 
     private func recommendedModel(for agent: Agent) -> String {
-        let key = "\(agent.id) \(agent.name)".lowercased()
-        if key.contains("jarvis") { return "openai/gpt-5.3-codex" }
-        if key.contains("scope") { return "openai/gpt-5.1-codex-max" }
-        if key.contains("prism") || key.contains("atlas") { return "openai/gpt-5.2" }
-        if key.contains("matrix") { return "openai/gpt-5.2-codex" }
-        return "openai/gpt-5.2-codex"
+        recommendedDefaultModelId(agentName: agent.name, identityHint: nil)
+    }
+
+    func recommendedDefaultModelId(agentName: String, identityHint: String?) -> String {
+        let key = "\(agentName) \(identityHint ?? "")".lowercased()
+        let candidates: [String]
+
+        if key.contains("jarvis") || key.contains("orchestrator") {
+            candidates = ["openai/gpt-5.2-pro", "openai/gpt-5.2", "openai/gpt-5.2-codex"]
+        } else if key.contains("atlas") || key.contains("research") {
+            candidates = ["openai/gpt-5.2-pro", "openai/gpt-5.2-instant", "openai/gpt-5.2"]
+        } else if key.contains("scope") || key.contains("project manager") || key.contains("roadmap") {
+            candidates = ["openai/gpt-5.2-pro", "openai/gpt-5.2", "openai/gpt-5.2-instant"]
+        } else if key.contains("matrix") || key.contains("developer") || key.contains("coder") {
+            candidates = ["openai/gpt-5.2-codex", "openai/gpt-5.2-pro", "openai/gpt-5.2"]
+        } else if key.contains("vigil") || key.contains("security") || key.contains("network") || key.contains("cyber") {
+            candidates = ["openai/gpt-5.2-codex", "openai/gpt-5.2-pro", "openai/gpt-5.2"]
+        } else if key.contains("prism") || key.contains("qa") || key.contains("test") {
+            candidates = ["openai/gpt-5.2-instant", "openai/gpt-5.2-mini", "openai/gpt-5.2"]
+        } else if key.contains("nexus") || key.contains("ui") || key.contains("ux") || key.contains("design") {
+            candidates = ["openai/gpt-5.2-instant", "openai/gpt-5.2-mini", "openai/gpt-5.2-pro"]
+        } else {
+            candidates = ["openai/gpt-5.2-instant", "openai/gpt-5.2", "openai/gpt-5.2-codex"]
+        }
+
+        if let matched = resolveAvailableModel(from: candidates) {
+            return matched
+        }
+        return candidates[0]
+    }
+
+    private func resolveAvailableModel(from preferredIds: [String]) -> String? {
+        guard !availableModels.isEmpty else { return nil }
+
+        // First pass: exact provider-qualified id match.
+        for preferred in preferredIds {
+            if let exact = availableModels.first(where: { $0.id.caseInsensitiveCompare(preferred) == .orderedSame }) {
+                return exact.id
+            }
+        }
+
+        // Second pass: normalize key tokens and find close model IDs.
+        for preferred in preferredIds {
+            let tokens = preferred.lowercased().split(separator: "/").last.map(String.init) ?? preferred.lowercased()
+            let parts = tokens.split(separator: "-").map(String.init)
+            if let fuzzy = availableModels.first(where: { model in
+                let id = model.id.lowercased()
+                return parts.allSatisfy { id.contains($0) }
+            }) {
+                return fuzzy.id
+            }
+        }
+        return nil
+    }
+
+    private func isCoreAgentName(_ name: String) -> Bool {
+        let key = name.lowercased()
+        let labels = ["jarvis", "atlas", "matrix", "nexus", "prism", "scope", "vigil"]
+        return labels.contains { key.contains($0) }
+    }
+
+    private func isLegacyModel(_ model: String?) -> Bool {
+        guard let model = model?.lowercased() else { return true }
+        if model.isEmpty { return true }
+        let legacy = [
+            "openai/gpt-5.3-codex",
+            "openai/gpt-5.1-codex-max",
+            "openai/gpt-5.1-codex",
+            "openai/spark"
+        ]
+        return legacy.contains(model) || model.contains("spark")
+    }
+
+    private func shouldAutoApplyRecommendation(for agent: Agent) -> Bool {
+        guard isCoreAgentName(agent.name) else { return false }
+        let localConfig = settingsService.settings.localAgents.first(where: { $0.id == agent.id })
+        let localModel = ModelNormalizer.normalize(localConfig?.modelId)
+        let currentModel = ModelNormalizer.normalize(agent.model)
+
+        if localModel == nil {
+            return true
+        }
+        if isLegacyModel(localModel) || isLegacyModel(currentModel) {
+            return true
+        }
+        return false
+    }
+
+    private func applyRecommendedModelsForCoreAgentsIfNeeded() async {
+        for agent in agents {
+            guard shouldAutoApplyRecommendation(for: agent) else { continue }
+            let recommended = recommendedDefaultModelId(agentName: agent.name, identityHint: nil)
+            let current = ModelNormalizer.normalize(agent.model)
+            guard current?.caseInsensitiveCompare(recommended) != .orderedSame else { continue }
+            do {
+                _ = try await gatewayService.updateAgent(agentId: agent.id, model: recommended)
+                saveLocalAgentOverride(agentId: agent.id) { config in
+                    config.modelId = recommended
+                }
+                if let idx = agents.firstIndex(where: { $0.id == agent.id }) {
+                    agents[idx].model = recommended
+                    agents[idx].modelName = availableModels.first(where: { $0.id.caseInsensitiveCompare(recommended) == .orderedSame })?.name ?? recommended
+                }
+            } catch {
+                print("[AgentsVM] recommended model apply failed for \(agent.id): \(error)")
+            }
+        }
     }
 
     // MARK: - Event Subscriptions
