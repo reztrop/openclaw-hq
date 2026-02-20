@@ -8,6 +8,7 @@ struct ModelPickerView: View {
     @Binding var selectedModelId: String?
     @EnvironmentObject var agentsVM: AgentsViewModel
     @EnvironmentObject var gatewayService: GatewayService
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @State private var isSaving = false
     @State private var savedConfirmation = false
@@ -33,7 +34,7 @@ struct ModelPickerView: View {
                     Label("Saved", systemImage: "checkmark.circle.fill")
                         .font(.caption)
                         .foregroundColor(.green)
-                        .transition(.opacity)
+                        .transition(reduceMotion ? .identity : .opacity)
                 }
                 if let err = saveError {
                     Text(err)
@@ -100,11 +101,19 @@ struct ModelPickerView: View {
 
         do {
             try await agentsVM.updateAgent(agentId: agentId, model: modelId)
-            withAnimation { savedConfirmation = true }
+            if reduceMotion {
+                savedConfirmation = true
+            } else {
+                withAnimation { savedConfirmation = true }
+            }
             // Dismiss "Saved" after 2 seconds
             Task {
                 try? await Task.sleep(for: .seconds(2))
-                withAnimation { savedConfirmation = false }
+                if reduceMotion {
+                    savedConfirmation = false
+                } else {
+                    withAnimation { savedConfirmation = false }
+                }
             }
         } catch {
             saveError = error.localizedDescription
