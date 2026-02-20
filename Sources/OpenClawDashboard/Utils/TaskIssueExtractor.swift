@@ -110,6 +110,7 @@ enum TaskIssueExtractor {
         let addedRegressionCheck = normalized.range(of: #"\badded\s+regression\s+checks?\b"#, options: [.regularExpression, .caseInsensitive]) != nil
             || normalized.range(of: #"\badded\s+regression\s+tests?\b"#, options: [.regularExpression, .caseInsensitive]) != nil
             || normalized.range(of: #"\badded\s+regression\s+coverage\b"#, options: [.regularExpression, .caseInsensitive]) != nil
+            || normalized.range(of: #"\badded\s+\w+\s+regression\s+coverage\b"#, options: [.regularExpression, .caseInsensitive]) != nil
             || normalized.range(of: #"\badded\s+regression\s+hardening\s+checks?\b"#, options: [.regularExpression, .caseInsensitive]) != nil
         let addedModeRegressionCoverage = text.contains("--mode")
             && normalized.range(of: #"\badded\b.*\b(drift|regressions?)\b"#, options: [.regularExpression, .caseInsensitive]) != nil
@@ -197,7 +198,12 @@ enum TaskIssueExtractor {
             "peekaboo permissions"
         ]
 
-        if externalSignals.contains(where: { normalized.contains($0) }) {
+        let peekabooPermissionMention = normalized.contains("peekaboo permission")
+            || normalized.contains("peekaboo permissions")
+        let peekabooBlockerOverride = peekabooPermissionMention
+            && (normalized.contains("still blocked") || normalized.contains("❌"))
+
+        if !peekabooBlockerOverride, externalSignals.contains(where: { normalized.contains($0) }) {
             return true
         }
 
