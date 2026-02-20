@@ -49,6 +49,7 @@ class AppViewModel: ObservableObject {
     private let taskInterventionService: TaskInterventionService
     private let taskCompactionService: TaskCompactionService
     private var taskExecutionService: TaskExecutionService?
+    private let isTaskAutomationEnabled = false
 
     private var cancellables = Set<AnyCancellable>()
 
@@ -81,7 +82,7 @@ class AppViewModel: ObservableObject {
         self.notificationService = notificationService
         self.taskExecutionService = taskExecutionService
 
-        if self.taskExecutionService == nil {
+        if isTaskAutomationEnabled, self.taskExecutionService == nil {
             let onTaskCompleted: (TaskItem) -> Void = { [weak self] task in
                 guard let self else { return }
                 self.projectsViewModel.handleTaskMovedToDone(task)
@@ -109,13 +110,15 @@ class AppViewModel: ObservableObject {
             guard let self else { return }
             self.projectsViewModel.handleProjectChatUserMessage(conversationId: sessionKey, message: message)
         }
-        tasksViewModel.onTaskMovedToDone = { [weak self] task in
-            guard let self else { return }
-            self.projectsViewModel.handleTaskMovedToDone(task)
-        }
-        tasksViewModel.onTaskMovedToInProgress = { [weak self] task in
-            guard let self else { return }
-            self.taskExecutionService?.handleTaskMovedToInProgress(task)
+        if isTaskAutomationEnabled {
+            tasksViewModel.onTaskMovedToDone = { [weak self] task in
+                guard let self else { return }
+                self.projectsViewModel.handleTaskMovedToDone(task)
+            }
+            tasksViewModel.onTaskMovedToInProgress = { [weak self] task in
+                guard let self else { return }
+                self.taskExecutionService?.handleTaskMovedToInProgress(task)
+            }
         }
 
         // Set up notifications

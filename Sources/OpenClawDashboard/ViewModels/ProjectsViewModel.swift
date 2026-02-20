@@ -11,6 +11,7 @@ class ProjectsViewModel: ObservableObject {
     private let gatewayService: GatewayService
     private let taskService: TaskService
     private var pendingPlanningByConversation: [String: PendingProjectPlanning] = [:]
+    private let isExecutionAutomationEnabled = false
 
     init(gatewayService: GatewayService, taskService: TaskService, filePath: String = Constants.projectsFilePath) {
         self.gatewayService = gatewayService
@@ -324,6 +325,10 @@ class ProjectsViewModel: ObservableObject {
     }
 
     func executeCurrentProjectPlan() async {
+        guard isExecutionAutomationEnabled else {
+            statusMessage = "Execution automation is disabled in this visual-only build."
+            return
+        }
         guard var project = selectedProject else { return }
         guard !taskService.isExecutionPaused else {
             statusMessage = "Execution is paused. Resume task activity on the Tasks page first."
@@ -495,6 +500,7 @@ class ProjectsViewModel: ObservableObject {
     }
 
     func handleTaskMovedToDone(_ task: TaskItem) {
+        guard isExecutionAutomationEnabled else { return }
         guard let projectId = task.projectId else { return }
         guard var project = projects.first(where: { $0.id == projectId }) else { return }
 
@@ -517,6 +523,7 @@ class ProjectsViewModel: ObservableObject {
     }
 
     func handleProjectChatUserMessage(conversationId: String, message: String) {
+        guard isExecutionAutomationEnabled else { return }
         guard var project = projects.first(where: { $0.conversationId == conversationId }) else { return }
         let normalized = message.lowercased()
 
