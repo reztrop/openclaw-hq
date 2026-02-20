@@ -240,6 +240,16 @@ final class TaskIssueExtractorTests: XCTestCase {
         XCTAssertTrue(issues.isEmpty)
     }
 
+    func testExtractIssuesIgnoresCheckedPartialProgressWithWorkInTreeLine() {
+        let response = """
+        Checked partial progress first (found uncommitted regression-extraction work in-tree) and continued from that state.
+        """
+
+        let issues = TaskIssueExtractor.extractIssues(from: response)
+
+        XCTAssertTrue(issues.isEmpty)
+    }
+
     func testExtractIssuesIgnoresConfirmedFixPresenceLine() {
         let response = """
         Issue: Confirmed issue `4084772` (Task 1300) fix is present in `TaskIssueExtractor`.

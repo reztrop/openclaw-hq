@@ -167,6 +167,15 @@ enum TaskIssueExtractor {
             return true
         }
 
+        let mentionsPartialProgress = normalized.contains("partial progress")
+        let continuesFromState = normalized.contains("continued from that state")
+            || normalized.contains("continued from the state")
+        let mentionsWorkInTree = normalized.contains("work in-tree") || normalized.contains("work in tree")
+
+        if hasCheckPrefix && mentionsPartialProgress && (continuesFromState || mentionsWorkInTree) {
+            return true
+        }
+
         let confirmsRegressionEvidenceCommitPresence = strippedIssuePrefix.contains("confirmed")
             && strippedIssuePrefix.contains("regression evidence commit")
             && (strippedIssuePrefix.contains("is present") || strippedIssuePrefix.contains("already present"))
