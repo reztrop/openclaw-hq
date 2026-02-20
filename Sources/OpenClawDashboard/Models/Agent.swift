@@ -33,9 +33,9 @@ struct Agent: Identifiable, Hashable {
 
     var currentAvatarPath: String? {
         switch status {
-        case .online, .busy:
+        case .busy:
             return avatarActivePath
-        case .idle, .offline:
+        case .online, .idle, .offline:
             return avatarIdlePath
         }
     }

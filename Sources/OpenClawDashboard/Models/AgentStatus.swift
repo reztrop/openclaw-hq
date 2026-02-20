@@ -29,6 +29,6 @@ enum AgentStatus: String, Codable, CaseIterable {
     }
 
     var isActive: Bool {
-        self == .online || self == .busy
+        self == .busy
     }
 }
