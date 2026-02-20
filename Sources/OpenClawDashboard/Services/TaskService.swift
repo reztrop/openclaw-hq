@@ -34,6 +34,7 @@ class TaskService: ObservableObject {
     func loadTasks() {
         guard FileManager.default.fileExists(atPath: filePath) else {
             tasks = Self.sampleTasks
+            _ = enforceSingleInProgressPerAgent()
             saveTasks()
             return
         }
@@ -43,9 +44,14 @@ class TaskService: ObservableObject {
             let decoder = JSONDecoder()
             decoder.dateDecodingStrategy = .iso8601
             tasks = try decoder.decode([TaskItem].self, from: data)
+            if enforceSingleInProgressPerAgent() {
+                saveTasks()
+            }
         } catch {
             print("[TaskService] Failed to load tasks: \(error)")
             tasks = Self.sampleTasks
+            _ = enforceSingleInProgressPerAgent()
+            saveTasks()
         }
     }
 
@@ -178,6 +184,7 @@ class TaskService: ObservableObject {
             var updated = task
             updated.updatedAt = Date()
             tasks[index] = updated
+            _ = enforceSingleInProgressPerAgent(preferredTaskId: task.id)
             saveTasks()
         }
     }
@@ -186,6 +193,7 @@ class TaskService: ObservableObject {
         guard let index = tasks.firstIndex(where: { $0.id == taskId }) else { return }
         mutate(&tasks[index])
         tasks[index].updatedAt = Date()
+        _ = enforceSingleInProgressPerAgent(preferredTaskId: taskId)
         saveTasks()
     }
 
@@ -221,6 +229,8 @@ class TaskService: ObservableObject {
                     tasks[index].isVerified = false
                 }
             }
+            let preferredTask = status == .inProgress ? taskId : nil
+            _ = enforceSingleInProgressPerAgent(preferredTaskId: preferredTask)
             saveTasks()
         }
     }
@@ -263,6 +273,54 @@ class TaskService: ObservableObject {
         case .medium: return 2
         case .low: return 3
         }
+    }
+
+    @discardableResult
+    private func enforceSingleInProgressPerAgent(preferredTaskId: UUID? = nil) -> Bool {
+        var didMutate = false
+        let grouped = Dictionary(grouping: tasks.indices.filter { tasks[$0].status == .inProgress && !tasks[$0].isArchived }) { index in
+            normalizedAgent(tasks[index].assignedAgent)
+        }
+
+        for (agent, indices) in grouped {
+            guard agent != nil, indices.count > 1 else { continue }
+
+            let keepIndex: Int
+            if let preferredTaskId,
+               let matched = indices.first(where: { tasks[$0].id == preferredTaskId }) {
+                keepIndex = matched
+            } else {
+                keepIndex = indices.max(by: { lhs, rhs in
+                    if tasks[lhs].updatedAt != tasks[rhs].updatedAt {
+                        return tasks[lhs].updatedAt < tasks[rhs].updatedAt
+                    }
+                    let lPriority = Self.priorityRank(tasks[lhs].priority)
+                    let rPriority = Self.priorityRank(tasks[rhs].priority)
+                    if lPriority != rPriority {
+                        return lPriority > rPriority
+                    }
+                    return tasks[lhs].createdAt < tasks[rhs].createdAt
+                }) ?? indices[0]
+            }
+
+            for index in indices where index != keepIndex {
+                tasks[index].status = .queued
+                tasks[index].updatedAt = Date()
+                tasks[index].completedAt = nil
+                if tasks[index].isVerificationTask {
+                    tasks[index].isVerified = false
+                }
+                didMutate = true
+            }
+        }
+
+        return didMutate
+    }
+
+    private func normalizedAgent(_ value: String?) -> String? {
+        guard let value else { return nil }
+        let token = value.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        return token.isEmpty ? nil : token
     }
 
     // MARK: - Sample Data

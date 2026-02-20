@@ -361,58 +361,8 @@ class AppViewModel: ObservableObject {
         return patterns.contains { lower.contains($0) }
     }
 
-    private func extractIssues(from response: String) -> [String] {
-        let lower = response.lowercased()
-        if lower.contains("no fix required") && !containsIssueSignal(lower) {
-            return []
-        }
-
-        var issues: [String] = []
-        for rawLine in response.components(separatedBy: .newlines) {
-            var line = rawLine.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !line.isEmpty else { continue }
-
-            if line.hasPrefix("- ") || line.hasPrefix("* ") {
-                line = String(line.dropFirst(2)).trimmingCharacters(in: .whitespacesAndNewlines)
-            } else if let dotRange = line.range(of: #"^\d+\.\s+"#, options: .regularExpression) {
-                line.removeSubrange(dotRange)
-                line = line.trimmingCharacters(in: .whitespacesAndNewlines)
-            }
-
-            let lowered = line.lowercased()
-            guard containsIssueSignal(lowered) else { continue }
-            guard !isIssueNegated(lowered) else { continue }
-            if line.count < 12 { continue }
-            issues.append(line)
-        }
-
-        if issues.isEmpty && containsIssueSignal(lower) && !isIssueNegated(lower) {
-            // Fallback: use compact summary when issues are implied but not bulleted.
-            let summary = response
-                .replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
-                .trimmingCharacters(in: .whitespacesAndNewlines)
-            if !summary.isEmpty {
-                issues.append(String(summary.prefix(240)))
-            }
-        }
-
-        return Array(NSOrderedSet(array: issues)) as? [String] ?? issues
-    }
-
-    private func containsIssueSignal(_ text: String) -> Bool {
-        let signals = [
-            "issue", "bug", "error", "fail", "failing", "regression", "problem",
-            "risk", "gap", "missing", "blocked", "constraint", "violation"
-        ]
-        return signals.contains { text.contains($0) }
-    }
-
-    private func isIssueNegated(_ text: String) -> Bool {
-        let negations = [
-            "no issue", "no issues", "no bug", "no bugs", "no error", "no errors",
-            "no regression", "no regressions", "no fix required", "nothing to fix"
-        ]
-        return negations.contains { text.contains($0) }
+    func extractIssues(from response: String) -> [String] {
+        TaskIssueExtractor.extractIssues(from: response)
     }
 
     private func routeIssuesToJarvisAndCreateFixTasks(sourceTask: TaskItem, issues: [String]) async {

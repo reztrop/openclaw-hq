@@ -13,6 +13,11 @@ let package = Package(
             swiftSettings: [
                 .swiftLanguageMode(.v5)
             ]
+        ),
+        .testTarget(
+            name: "OpenClawDashboardTests",
+            dependencies: ["OpenClawDashboard"],
+            path: "Tests/OpenClawDashboardTests"
         )
     ]
 )
