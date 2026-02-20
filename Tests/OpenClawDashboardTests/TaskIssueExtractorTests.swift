@@ -35,6 +35,16 @@ final class TaskIssueExtractorTests: XCTestCase {
         XCTAssertTrue(issues.isEmpty)
     }
 
+    func testExtractIssuesIgnoresExpectedNoExtractedIssuesLine() {
+        let response = """
+        Expected: no extracted issues.
+        """
+
+        let issues = TaskIssueExtractor.extractIssues(from: response)
+
+        XCTAssertTrue(issues.isEmpty)
+    }
+
     func testExtractIssuesKeepsUnresolvedIssueLines() {
         let response = """
         Remaining issues:

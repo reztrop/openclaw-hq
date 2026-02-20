@@ -75,7 +75,8 @@ enum TaskIssueExtractor {
     static func isIssueNegated(_ text: String) -> Bool {
         let negations = [
             "no issue", "no issues", "no bug", "no bugs", "no error", "no errors",
-            "no regression", "no regressions", "no fix required", "nothing to fix"
+            "no regression", "no regressions", "no fix required", "nothing to fix",
+            "no extracted issues"
         ]
         return negations.contains { text.contains($0) }
     }
