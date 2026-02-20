@@ -107,6 +107,16 @@ final class TaskIssueExtractorTests: XCTestCase {
         XCTAssertTrue(issues.isEmpty)
     }
 
+    func testExtractIssuesIgnoresAddedTargetedRegressionTestsLine() {
+        let response = """
+        Issue: Added targeted regression tests in:
+        """
+
+        let issues = TaskIssueExtractor.extractIssues(from: response)
+
+        XCTAssertTrue(issues.isEmpty)
+    }
+
     func testExtractIssuesIgnoresIssuePrefixedAddedRegressionChecksLine() {
         let response = """
         Issue: Added regression checks for the Tasks tab.

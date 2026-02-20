@@ -109,6 +109,7 @@ enum TaskIssueExtractor {
 
         let addedRegressionCheck = normalized.range(of: #"\badded\s+regression\s+checks?\b"#, options: [.regularExpression, .caseInsensitive]) != nil
             || normalized.range(of: #"\badded\s+regression\s+tests?\b"#, options: [.regularExpression, .caseInsensitive]) != nil
+            || normalized.range(of: #"\badded\s+\w+\s+regression\s+tests?\b"#, options: [.regularExpression, .caseInsensitive]) != nil
             || normalized.range(of: #"\badded\s+regression\s+coverage\b"#, options: [.regularExpression, .caseInsensitive]) != nil
             || normalized.range(of: #"\badded\s+\w+\s+regression\s+coverage\b"#, options: [.regularExpression, .caseInsensitive]) != nil
             || normalized.range(of: #"\badded\s+regression\s+hardening\s+checks?\b"#, options: [.regularExpression, .caseInsensitive]) != nil
