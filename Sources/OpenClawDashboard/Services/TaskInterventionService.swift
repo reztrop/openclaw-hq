@@ -72,7 +72,8 @@ final class TaskInterventionService {
         let reportPath = writeInterventionReport(
             dominantIssue: dominantIssue,
             issueCounts: issueCounts,
-            affectedTasks: affectedTasks
+            affectedTasks: affectedTasks,
+            generatedAt: now
         )
         await notifyJarvisOfIntervention(reportPath: reportPath, dominantIssue: dominantIssue, affectedTasks: affectedTasks)
 
@@ -90,8 +91,10 @@ final class TaskInterventionService {
             "status 429": "rate_limited",
             "quota exceeded": "rate_limited",
             "run error: disconnected": "gateway_disconnected",
+            "gateway disconnected": "gateway_disconnected",
             "invalid handshake": "gateway_handshake",
             "[task-blocked]": "task_blocked",
+            "task blocked": "task_blocked",
             "cannot proceed without": "missing_scope",
             "missing execution artifact": "missing_scope"
         ]
@@ -101,9 +104,9 @@ final class TaskInterventionService {
         return Array(Set(markers))
     }
 
-    private func writeInterventionReport(dominantIssue: String, issueCounts: [String: Int], affectedTasks: [TaskItem]) -> String {
+    private func writeInterventionReport(dominantIssue: String, issueCounts: [String: Int], affectedTasks: [TaskItem], generatedAt: Date) -> String {
         let reportsDir = reportsDirectoryPath
-        let timestamp = ISO8601DateFormatter().string(from: now()).replacingOccurrences(of: ":", with: "-")
+        let timestamp = ISO8601DateFormatter().string(from: generatedAt).replacingOccurrences(of: ":", with: "-")
         let filePath = "\(reportsDir)/jarvis_intervention_\(timestamp).md"
 
         let issueLines = issueCounts
@@ -124,7 +127,7 @@ final class TaskInterventionService {
         let body = """
         # Jarvis Intervention Report
 
-        Generated: \(Date().shortString)
+        Generated: \(generatedAt.shortString)
         Dominant Issue: \(dominantIssue)
 
         ## Issue Frequency
