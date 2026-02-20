@@ -100,10 +100,10 @@ enum TaskIssueExtractor {
 
     static func isPassingStatusSignal(_ text: String) -> Bool {
         let normalized = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        if normalized.range(of: #"^(pass|passed|ok|success)\s*:\s*"#, options: [.regularExpression, .caseInsensitive]) != nil {
+        if normalized.range(of: #"^(pass|passed|ok|success)\s*[:\-–—]\s*"#, options: [.regularExpression, .caseInsensitive]) != nil {
             return true
         }
-        if normalized.range(of: #"\((pass|passed|ok|success)\)\s*:\s*"#, options: [.regularExpression, .caseInsensitive]) != nil {
+        if normalized.range(of: #"\((pass|passed|ok|success)\)\s*[:\-–—]\s*"#, options: [.regularExpression, .caseInsensitive]) != nil {
             return true
         }
         if normalized.range(of: #"\b\d+\s+tests?\s+passed\b"#, options: [.regularExpression, .caseInsensitive]) != nil {

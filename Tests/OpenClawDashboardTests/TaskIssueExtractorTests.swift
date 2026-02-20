@@ -57,6 +57,16 @@ final class TaskIssueExtractorTests: XCTestCase {
         XCTAssertTrue(issues.isEmpty)
     }
 
+    func testExtractIssuesIgnoresPassingRegressionCheckStatusWithDashDelimiter() {
+        let response = """
+        PASS - task-1300 regression checks complete with keyboard trap issue in model picker
+        """
+
+        let issues = TaskIssueExtractor.extractIssues(from: response)
+
+        XCTAssertTrue(issues.isEmpty)
+    }
+
     func testExtractIssuesIgnoresPassingRegressionPreventionValidationStatus() {
         let response = """
         task-1300 regression-prevention validation passed successfully
