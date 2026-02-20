@@ -21,6 +21,8 @@ final class VisualScopeLockGuardrailTests: XCTestCase {
                 "loadInterventionState()",
                 "saveInterventionState()",
                 "interventionCooldown",
+                "hasExplicitTaskBlockedOutcome(in evidence:",
+                "isExplicitBlockedOutcomeLine(_ line:",
                 "private func evaluateRecurringIssueIntervention(tasks:"
             ],
             context: "AppViewModel"
