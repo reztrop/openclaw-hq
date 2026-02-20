@@ -175,7 +175,11 @@ enum TaskIssueExtractor {
             && strippedIssuePrefix.contains("regression tests")
             && (strippedIssuePrefix.contains("✅") || strippedIssuePrefix.contains("pass") || strippedIssuePrefix.contains("passed") || strippedIssuePrefix.contains("complete") || strippedIssuePrefix.contains("completed"))
 
-        return confirmsRegressionEvidenceCommitPresence || isSatisfiedRegressionIssueLine
+        let deltaCommitAlreadyPresent = strippedIssuePrefix.contains("delta commit")
+            && (strippedIssuePrefix.contains("already present") || strippedIssuePrefix.contains("already exists") || strippedIssuePrefix.contains("is already present"))
+            && hasCommitHash
+
+        return confirmsRegressionEvidenceCommitPresence || isSatisfiedRegressionIssueLine || deltaCommitAlreadyPresent
     }
 
     static func isExternalDependencySignal(_ text: String) -> Bool {

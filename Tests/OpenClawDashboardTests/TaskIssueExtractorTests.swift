@@ -240,6 +240,16 @@ final class TaskIssueExtractorTests: XCTestCase {
         XCTAssertTrue(issues.isEmpty)
     }
 
+    func testExtractIssuesIgnoresDeltaCommitAlreadyPresentLine() {
+        let response = """
+        Issue: Delta commit already present: `c428407` — “Ignore hyphenated host-permission blocker issues”
+        """
+
+        let issues = TaskIssueExtractor.extractIssues(from: response)
+
+        XCTAssertTrue(issues.isEmpty)
+    }
+
     func testExtractIssuesIgnoresSatisfiedSingleActiveTaskRegressionIssueLine() {
         let response = """
         Issue: `574e168` single-active-task regression tests ✅
@@ -253,6 +263,16 @@ final class TaskIssueExtractorTests: XCTestCase {
     func testExtractIssuesIgnoresAlreadyFixedAndValidatedIssueLine() {
         let response = """
         Issue: Resumed from prior partial progress: this issue has already been fixed in the repo and validated.
+        """
+
+        let issues = TaskIssueExtractor.extractIssues(from: response)
+
+        XCTAssertTrue(issues.isEmpty)
+    }
+
+    func testExtractIssuesIgnoresRemediatedPriorProgressFindingLine() {
+        let response = """
+        Checked existing progress first: this issue was already remediated in prior commits (`161355f`, parser marker hardening), so I continued from that state by adding a targeted regression guard for this exact finding text.
         """
 
         let issues = TaskIssueExtractor.extractIssues(from: response)
