@@ -50,6 +50,7 @@ class AppViewModel: ObservableObject {
     private var activeAgentRuns: Set<String> = []
     private var taskNextEligibleAt: [UUID: Date] = [:]
     private var verificationEscalationAt: [UUID: Date] = [:]
+    private var routedIssueSignatures: Set<String> = []
     private var orchestrationLoopTask: Task<Void, Never>?
     private var isRunningOrchestrationTick = false
 
@@ -229,7 +230,16 @@ class AppViewModel: ObservableObject {
                 taskService.appendTaskEvidence(current.id, text: "Run completed with no assistant text.")
             }
 
-            let outcome = taskOutcome(for: current, from: finalText)
+            let detectedIssues = extractIssues(from: finalText)
+            if !detectedIssues.isEmpty {
+                await routeIssuesToJarvisAndCreateFixTasks(sourceTask: current, issues: detectedIssues)
+                taskService.appendTaskEvidence(current.id, text: "Routed \(detectedIssues.count) issue(s) to Jarvis and created fix tasks.")
+            }
+
+            var outcome = taskOutcome(for: current, from: finalText)
+            if !detectedIssues.isEmpty && outcome == .complete {
+                outcome = .continueWork
+            }
             switch outcome {
             case .complete:
                 taskService.moveTask(current.id, to: .done)
@@ -339,6 +349,172 @@ class AppViewModel: ObservableObject {
         return patterns.contains { lower.contains($0) }
     }
 
+    private func extractIssues(from response: String) -> [String] {
+        let lower = response.lowercased()
+        if lower.contains("no fix required") && !containsIssueSignal(lower) {
+            return []
+        }
+
+        var issues: [String] = []
+        for rawLine in response.components(separatedBy: .newlines) {
+            var line = rawLine.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !line.isEmpty else { continue }
+
+            if line.hasPrefix("- ") || line.hasPrefix("* ") {
+                line = String(line.dropFirst(2)).trimmingCharacters(in: .whitespacesAndNewlines)
+            } else if let dotRange = line.range(of: #"^\d+\.\s+"#, options: .regularExpression) {
+                line.removeSubrange(dotRange)
+                line = line.trimmingCharacters(in: .whitespacesAndNewlines)
+            }
+
+            let lowered = line.lowercased()
+            guard containsIssueSignal(lowered) else { continue }
+            guard !isIssueNegated(lowered) else { continue }
+            if line.count < 12 { continue }
+            issues.append(line)
+        }
+
+        if issues.isEmpty && containsIssueSignal(lower) && !isIssueNegated(lower) {
+            // Fallback: use compact summary when issues are implied but not bulleted.
+            let summary = response
+                .replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            if !summary.isEmpty {
+                issues.append(String(summary.prefix(240)))
+            }
+        }
+
+        return Array(NSOrderedSet(array: issues)) as? [String] ?? issues
+    }
+
+    private func containsIssueSignal(_ text: String) -> Bool {
+        let signals = [
+            "issue", "bug", "error", "fail", "failing", "regression", "problem",
+            "risk", "gap", "missing", "blocked", "constraint", "violation"
+        ]
+        return signals.contains { text.contains($0) }
+    }
+
+    private func isIssueNegated(_ text: String) -> Bool {
+        let negations = [
+            "no issue", "no issues", "no bug", "no bugs", "no error", "no errors",
+            "no regression", "no regressions", "no fix required", "nothing to fix"
+        ]
+        return negations.contains { text.contains($0) }
+    }
+
+    private func routeIssuesToJarvisAndCreateFixTasks(sourceTask: TaskItem, issues: [String]) async {
+        let projectName = sourceTask.projectName?.isEmpty == false ? (sourceTask.projectName ?? "Unspecified") : "Unspecified"
+        let projectColor = sourceTask.projectColorHex
+        let projectId = sourceTask.projectId
+
+        var createdTasks: [TaskItem] = []
+        for issue in issues {
+            let signature = issueSignature(projectId: projectId, issue: issue)
+            if routedIssueSignatures.contains(signature) { continue }
+            if hasExistingTaskForIssue(projectId: projectId, issue: issue) {
+                routedIssueSignatures.insert(signature)
+                continue
+            }
+
+            let assignee = preferredAgent(for: issue)
+            let title = "Fix: \(normalizedIssueTitle(issue))"
+            let description = """
+            Auto-generated from task \(sourceTask.id.uuidString) findings.
+            Issue: \(issue)
+
+            Required:
+            1. Implement or resolve the issue.
+            2. Add/adjust validation for regression prevention.
+            3. Report completion with concrete evidence.
+            """
+            let created = taskService.createTask(
+                title: title,
+                description: description,
+                assignedAgent: assignee,
+                status: .scheduled,
+                priority: .high,
+                scheduledFor: nil,
+                projectId: projectId,
+                projectName: projectName,
+                projectColorHex: projectColor,
+                isVerificationTask: false,
+                verificationRound: nil,
+                isVerified: false,
+                isArchived: false
+            )
+            createdTasks.append(created)
+            routedIssueSignatures.insert(signature)
+        }
+
+        if createdTasks.isEmpty { return }
+        let taskSummary = createdTasks.map { "- \($0.title) -> \($0.assignedAgent ?? "Unassigned")" }.joined(separator: "\n")
+        let issueSummary = issues.map { "- \($0)" }.joined(separator: "\n")
+
+        let jarvisMessage = """
+        [issue-routing]
+        Project: \(projectName)
+        Source Task ID: \(sourceTask.id.uuidString)
+        Issues detected:
+        \(issueSummary)
+
+        The dashboard auto-created remediation tasks:
+        \(taskSummary)
+
+        Coordinate execution immediately, enforce dependency order, and keep one active in-progress task per agent.
+        """
+        _ = try? await gatewayService.sendAgentMessage(
+            agentId: "jarvis",
+            message: jarvisMessage,
+            sessionKey: nil,
+            thinkingEnabled: true
+        )
+    }
+
+    private func issueSignature(projectId: String?, issue: String) -> String {
+        let project = projectId ?? "global"
+        let normalized = issue
+            .lowercased()
+            .replacingOccurrences(of: "[^a-z0-9\\s]", with: "", options: .regularExpression)
+            .replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        return "\(project)|\(normalized)"
+    }
+
+    private func hasExistingTaskForIssue(projectId: String?, issue: String) -> Bool {
+        let needle = normalizedIssueTitle(issue).lowercased()
+        return taskService.tasks.contains { task in
+            guard !task.isArchived else { return false }
+            if task.projectId != projectId { return false }
+            return task.title.lowercased().contains(needle)
+        }
+    }
+
+    private func normalizedIssueTitle(_ issue: String) -> String {
+        let compact = issue
+            .replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        if compact.count <= 70 { return compact }
+        return String(compact.prefix(70)).trimmingCharacters(in: .whitespacesAndNewlines) + "..."
+    }
+
+    private func preferredAgent(for issue: String) -> String {
+        let text = issue.lowercased()
+        if text.contains("auth") || text.contains("security") || text.contains("origin") || text.contains("token") || text.contains("ws") {
+            return "Prism"
+        }
+        if text.contains("dependency") || text.contains("api contract") || text.contains("integration") || text.contains("research") {
+            return "Atlas"
+        }
+        if text.contains("scope") || text.contains("requirements") || text.contains("orchestr") || text.contains("planning") {
+            return "Scope"
+        }
+        if text.contains("qa") || text.contains("verification") || text.contains("regression") || text.contains("accessibility") {
+            return "Prism"
+        }
+        return "Matrix"
+    }
+
     private func startTaskOrchestrationLoop() {
         orchestrationLoopTask?.cancel()
         orchestrationLoopTask = Task { [weak self] in
@@ -389,6 +565,9 @@ class AppViewModel: ObservableObject {
         let queuedTasks = sortedTasks.filter { $0.status == .queued }
         for task in queuedTasks {
             guard isEligibleToRun(task.id, now: now) else { continue }
+            if task.isVerificationTask, hasOutstandingRemediationWork(for: task) {
+                continue
+            }
             guard let agent = normalizedAgent(task.assignedAgent) else { continue }
             guard !reservedAgents.contains(agent) else { continue }
             reservedAgents.insert(agent)
@@ -432,6 +611,15 @@ class AppViewModel: ObservableObject {
 
     private func setRetryCooldown(taskId: UUID, seconds: TimeInterval) {
         taskNextEligibleAt[taskId] = Date().addingTimeInterval(seconds)
+    }
+
+    private func hasOutstandingRemediationWork(for verificationTask: TaskItem) -> Bool {
+        taskService.tasks.contains { task in
+            guard !task.isArchived else { return false }
+            guard task.projectId == verificationTask.projectId else { return false }
+            guard !task.isVerificationTask else { return false }
+            return task.status != .done
+        }
     }
 
     private func requestJarvisUnblockForVerification(task: TaskItem, blockedResponse: String) async {
