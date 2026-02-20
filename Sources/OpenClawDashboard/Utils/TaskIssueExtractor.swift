@@ -125,7 +125,9 @@ enum TaskIssueExtractor {
             "host level ui automation permissions required",
             "dependency: host level",
             "screen recording permission",
-            "accessibility permission"
+            "accessibility permission",
+            "peekaboo permission",
+            "peekaboo permissions"
         ]
 
         if externalSignals.contains(where: { normalized.contains($0) }) {

@@ -73,4 +73,15 @@ final class AppViewModelIssueExtractionTests: XCTestCase {
         let issues = TaskIssueExtractor.extractIssues(from: response)
         XCTAssertTrue(issues.isEmpty)
     }
+
+    func testExtractIssuesIgnoresPeekabooPermissionBlockers() {
+        let response = """
+        Task: Fix: `peekaboo permissions` ❌ still blocked:
+        Issue: `peekaboo permissions` ❌ still blocked.
+        [task-blocked]
+        """
+
+        let issues = TaskIssueExtractor.extractIssues(from: response)
+        XCTAssertTrue(issues.isEmpty)
+    }
 }
