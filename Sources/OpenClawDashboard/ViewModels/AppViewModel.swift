@@ -207,21 +207,7 @@ class AppViewModel: ObservableObject {
         let description = current.description?.trimmingCharacters(in: .whitespacesAndNewlines)
         let detailLine = (description?.isEmpty == false) ? "Task details: \(description!)" : "Task details: none"
 
-        let kickoff = """
-        [task-start]
-        \(projectLine)
-        Task ID: \(current.id.uuidString)
-        Task: \(current.title)
-        \(detailLine)
-
-        Begin implementation immediately.
-        Before doing new work, first check whether this task already has partial progress and continue from that state.
-        Keep updates concise and execution-focused. Work autonomously to completion.
-        End with exactly one marker line:
-        [task-complete] if done,
-        [task-continue] if more work remains,
-        [task-blocked] if blocked waiting on dependency.
-        """
+        let kickoff = buildKickoffPrompt(for: current, projectLine: projectLine, detailLine: detailLine)
 
         defer {
             activeTaskRuns.remove(current.id)
@@ -250,6 +236,10 @@ class AppViewModel: ObservableObject {
                     projectsViewModel.handleTaskMovedToDone(doneTask)
                 }
             case .blocked:
+                if current.isVerificationTask {
+                    await requestJarvisUnblockForVerification(task: current, blockedResponse: finalText)
+                    taskService.appendTaskEvidence(current.id, text: "Verification escalation sent to Jarvis.")
+                }
                 taskService.moveTask(current.id, to: .queued)
                 setRetryCooldown(taskId: current.id, seconds: 45)
             case .continueWork:
@@ -263,6 +253,51 @@ class AppViewModel: ObservableObject {
         }
 
         await runTaskOrchestrationTick()
+    }
+
+    private func buildKickoffPrompt(for task: TaskItem, projectLine: String, detailLine: String) -> String {
+        let markerRules = """
+        End with exactly one marker line:
+        [task-complete] if done,
+        [task-continue] if more work remains,
+        [task-blocked] if blocked waiting on a hard dependency.
+        """
+
+        if task.isVerificationTask {
+            let recentEvidence = String((task.lastEvidence ?? "").suffix(1200))
+            let evidenceBlock = recentEvidence.isEmpty ? "Execution evidence on task card: none yet." : "Execution evidence on task card:\n\(recentEvidence)"
+
+            return """
+            [task-start]
+            \(projectLine)
+            Task ID: \(task.id.uuidString)
+            Task: \(task.title)
+            \(detailLine)
+
+            This is a FINAL VERIFICATION task.
+            Review all available artifacts in this workspace plus the task evidence below.
+            If Jarvis artifact scope is missing, continue with best-effort verification and include a \"Scope Gaps\" section in your response.
+            Do not use [task-blocked] solely because Jarvis scope is missing.
+            Use [task-blocked] only for hard external blockers (credentials/tool outage/missing system dependency).
+
+            \(evidenceBlock)
+
+            \(markerRules)
+            """
+        }
+
+        return """
+        [task-start]
+        \(projectLine)
+        Task ID: \(task.id.uuidString)
+        Task: \(task.title)
+        \(detailLine)
+
+        Begin implementation immediately.
+        Before doing new work, first check whether this task already has partial progress and continue from that state.
+        Keep updates concise and execution-focused. Work autonomously to completion.
+        \(markerRules)
+        """
     }
 
     private enum TaskOutcome {
@@ -381,6 +416,29 @@ class AppViewModel: ObservableObject {
 
     private func setRetryCooldown(taskId: UUID, seconds: TimeInterval) {
         taskNextEligibleAt[taskId] = Date().addingTimeInterval(seconds)
+    }
+
+    private func requestJarvisUnblockForVerification(task: TaskItem, blockedResponse: String) async {
+        let projectName = task.projectName?.isEmpty == false ? (task.projectName ?? "Unspecified") : "Unspecified"
+        let message = """
+        [verification-unblock]
+        Project: \(projectName)
+        Verification Task ID: \(task.id.uuidString)
+        Verification Task: \(task.title)
+        Assigned Reviewer: \(task.assignedAgent ?? "Unknown")
+
+        The reviewer reported a blocked verification run.
+        Provide concrete artifact scope immediately (commits/files/outputs), update the team context, and continue execution.
+
+        Blocked response:
+        \(blockedResponse)
+        """
+        _ = try? await gatewayService.sendAgentMessage(
+            agentId: "jarvis",
+            message: message,
+            sessionKey: nil,
+            thinkingEnabled: true
+        )
     }
 
     deinit {
