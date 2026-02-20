@@ -97,10 +97,6 @@ enum TaskIssueExtractor {
             .replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
             .trimmingCharacters(in: .whitespacesAndNewlines)
 
-        if normalized.contains("issue classification") {
-            return false
-        }
-
         let resolutionSignals = [
             "resolved", "remediated", "fixed", "addressed", "completed", "closed"
         ]
