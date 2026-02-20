@@ -250,6 +250,16 @@ final class TaskIssueExtractorTests: XCTestCase {
         XCTAssertTrue(issues.isEmpty)
     }
 
+    func testExtractIssuesIgnoresCheckedPartialWorkWithRegressionTestsNotGreenLine() {
+        let response = """
+        Checked prior progress first and found partial work already in place (new regression tests were added but not yet green).
+        """
+
+        let issues = TaskIssueExtractor.extractIssues(from: response)
+
+        XCTAssertTrue(issues.isEmpty)
+    }
+
     func testExtractIssuesIgnoresConfirmedFixPresenceLine() {
         let response = """
         Issue: Confirmed issue `4084772` (Task 1300) fix is present in `TaskIssueExtractor`.
