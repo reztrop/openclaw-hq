@@ -170,6 +170,10 @@ enum TaskIssueExtractor {
             && strippedIssuePrefix.contains("regression evidence commit")
             && (strippedIssuePrefix.contains("is present") || strippedIssuePrefix.contains("already present"))
 
+        let confirmsExistingFixPresence = normalized.contains("existing fix present in")
+            || normalized.contains("fix is present in")
+            || normalized.contains("fix present in")
+
         let hasCommitHash = strippedIssuePrefix.range(of: #"\b[0-9a-f]{7,40}\b"#, options: .regularExpression) != nil
         let isSatisfiedRegressionIssueLine = hasCommitHash
             && strippedIssuePrefix.contains("single-active-task")
@@ -185,6 +189,7 @@ enum TaskIssueExtractor {
         let closureConfirmation = recordsClosure && notBlocked
 
         return confirmsRegressionEvidenceCommitPresence
+            || confirmsExistingFixPresence
             || isSatisfiedRegressionIssueLine
             || deltaCommitAlreadyPresent
             || closureConfirmation

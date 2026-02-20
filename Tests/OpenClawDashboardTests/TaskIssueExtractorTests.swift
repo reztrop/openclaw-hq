@@ -240,6 +240,16 @@ final class TaskIssueExtractorTests: XCTestCase {
         XCTAssertTrue(issues.isEmpty)
     }
 
+    func testExtractIssuesIgnoresExistingFixPresenceLine() {
+        let response = """
+        Issue: Existing fix present in `Sources/OpenClawDashboard/Utils/TaskIssueExtractor.swift`.
+        """
+
+        let issues = TaskIssueExtractor.extractIssues(from: response)
+
+        XCTAssertTrue(issues.isEmpty)
+    }
+
     func testExtractIssuesIgnoresDeltaCommitAlreadyPresentLine() {
         let response = """
         Issue: Delta commit already present: `c428407` — “Ignore hyphenated host-permission blocker issues”
