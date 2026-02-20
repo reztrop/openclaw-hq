@@ -181,6 +181,7 @@ class AppViewModel: ObservableObject {
     }
 
     private func startImplementation(for task: TaskItem) async {
+        guard isTaskAutomationEnabled else { return }
         guard !taskService.isExecutionPaused else { return }
         guard let current = taskService.tasks.first(where: { $0.id == task.id }) else { return }
         guard current.status == .inProgress, !current.isArchived else { return }
