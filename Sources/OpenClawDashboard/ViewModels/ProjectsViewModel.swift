@@ -324,7 +324,151 @@ class ProjectsViewModel: ObservableObject {
     }
 
     func executeCurrentProjectPlan() async {
-        statusMessage = "Execution automation is out of scope for the visual-only overhaul build."
+        guard var project = selectedProject else { return }
+        guard !taskService.isExecutionPaused else {
+            statusMessage = "Execution is paused. Resume task activity on the Tasks page first."
+            return
+        }
+
+        let projectColorHex = colorHex(forProjectId: project.id)
+        let projectName = project.title
+
+        let seedTasks: [(String, String, String, TaskPriority)] = [
+            ("Finalize execution orchestration", "Jarvis coordinates delivery sequencing and ownership checkpoints for this project. Keep tasks independent to avoid agent thrash.", "Jarvis", .urgent),
+            ("Translate approved plan into implementation tasks", "Break the approved project plan into execution-ready work items and acceptance criteria. Ensure work can be done serially per agent.", "Scope", .high),
+            ("Research external dependencies and constraints", "Validate APIs, libraries, and integration constraints before implementation. Avoid creating tightly coupled parallel tasks for one agent.", "Atlas", .medium),
+            ("Implement core product workflows", "Build the primary flows specified by the approved sections and design plan. Keep each task completable without task switching.", "Matrix", .high),
+            ("Define QA gates and validate readiness", "Set validation criteria and verify key paths before release. Bundle related checks into focused single-lane tasks.", "Prism", .high),
+        ]
+
+        var created = 0
+        for seed in seedTasks {
+            let scopedTitle = "\(projectName): \(seed.0)"
+            let alreadyExists = taskService.tasks.contains {
+                $0.projectId == project.id && $0.title == scopedTitle
+            }
+            if alreadyExists { continue }
+
+            _ = taskService.createTask(
+                title: scopedTitle,
+                description: seed.1,
+                assignedAgent: seed.2,
+                status: .scheduled,
+                priority: seed.3,
+                scheduledFor: nil,
+                projectId: project.id,
+                projectName: projectName,
+                projectColorHex: projectColorHex,
+                isVerificationTask: false,
+                verificationRound: nil,
+                isVerified: false,
+                isArchived: false
+            )
+            created += 1
+        }
+
+        created += createSectionWorkflowTasks(
+            for: project,
+            projectName: projectName,
+            projectColorHex: projectColorHex
+        )
+
+        let kickoffMessage = """
+        [project-execute]
+        Project: \(projectName)
+        Start execution now. Create and coordinate concrete task updates through the team.
+        Prioritize urgent and high-priority work first.
+        Constraint: each agent can only have one task in progress at a time.
+        Constraint: create independent tasks that reduce switching and cross-task blocking.
+        """
+        _ = try? await gatewayService.sendAgentMessage(
+            agentId: "jarvis",
+            message: kickoffMessage,
+            sessionKey: project.conversationId,
+            thinkingEnabled: true
+        )
+
+        project.reviewStatus = .notStarted
+        project.reviewRound = 0
+        project.updatedAt = Date()
+        saveUpdated(project)
+
+        statusMessage = created == 0
+            ? "Execution already initialized for this project."
+            : "Execution started. Created \(created) task(s) in Ready."
+    }
+
+    private func createSectionWorkflowTasks(for project: ProjectRecord, projectName: String, projectColorHex: String) -> Int {
+        let sourceSections = project.blueprint.sections.filter { $0.completed }
+        let sections = sourceSections.isEmpty ? project.blueprint.sections : sourceSections
+        guard !sections.isEmpty else { return 0 }
+
+        let designContext = conciseContext(project.blueprint.designText)
+        let draftContext = conciseContext(project.blueprint.sectionsDraftText)
+
+        var created = 0
+        for section in sections {
+            let scopedTitle = "\(projectName): Build \(section.title) core workflow"
+            let alreadyExists = taskService.tasks.contains {
+                $0.projectId == project.id && $0.title == scopedTitle
+            }
+            if alreadyExists { continue }
+
+            let description = """
+            Deliver the primary user workflow for \(section.title).
+
+            Section goal:
+            \(section.summary)
+
+            Design plan context:
+            \(designContext)
+
+            Approved sections context:
+            \(draftContext)
+
+            Constraints:
+            - Keep the task independently completable.
+            - Avoid task switching across unrelated sections.
+            - Hand off to Jarvis when implementation is review-ready.
+            """
+
+            _ = taskService.createTask(
+                title: scopedTitle,
+                description: description,
+                assignedAgent: normalizedAgent(section.ownerAgent),
+                status: .scheduled,
+                priority: section.completed ? .high : .medium,
+                scheduledFor: nil,
+                projectId: project.id,
+                projectName: projectName,
+                projectColorHex: projectColorHex,
+                isVerificationTask: false,
+                verificationRound: nil,
+                isVerified: false,
+                isArchived: false
+            )
+            created += 1
+        }
+
+        return created
+    }
+
+    private func conciseContext(_ text: String, fallback: String = "No additional context captured yet.") -> String {
+        let cleaned = text
+            .replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+
+        guard !cleaned.isEmpty else { return fallback }
+        let maxLength = 420
+        if cleaned.count <= maxLength { return cleaned }
+        let prefix = cleaned.prefix(maxLength)
+        return "\(prefix)…"
+    }
+
+    private func normalizedAgent(_ raw: String) -> String {
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.isEmpty { return "Matrix" }
+        return trimmed
     }
 
     func reconcilePendingPlanningFromChatHistory() async {
@@ -351,11 +495,155 @@ class ProjectsViewModel: ObservableObject {
     }
 
     func handleTaskMovedToDone(_ task: TaskItem) {
-        // Visual-only track: execution orchestration disabled.
+        guard let projectId = task.projectId else { return }
+        guard var project = projects.first(where: { $0.id == projectId }) else { return }
+
+        if project.reviewStatus == .finalApproved { return }
+
+        if task.isVerificationTask {
+            evaluateVerificationCompletion(for: &project, completedTask: task)
+            return
+        }
+
+        let activeProjectTasks = taskService.tasks.filter {
+            $0.projectId == projectId && !$0.isArchived && !$0.isVerificationTask
+        }
+        guard !activeProjectTasks.isEmpty else { return }
+
+        let allDone = activeProjectTasks.allSatisfy { $0.status == .done }
+        if allDone && project.reviewStatus != .inReview && project.reviewStatus != .waitingFinalApproval {
+            _ = startVerificationRound(for: &project, reason: "Execution tasks are complete. Perform final verification.")
+        }
     }
 
     func handleProjectChatUserMessage(conversationId: String, message: String) {
-        // Visual-only track: execution orchestration disabled.
+        guard var project = projects.first(where: { $0.conversationId == conversationId }) else { return }
+        let normalized = message.lowercased()
+
+        let requestedChanges = normalized.contains("[changes-requested]") || normalized.contains("changes requested")
+        let finalApproval = normalized.contains("[final-approve]") || normalized.contains("final approval")
+
+        if requestedChanges {
+            if project.reviewStatus == .finalApproved {
+                statusMessage = "Project already finalized. Start a new project or explicitly reopen."
+                return
+            }
+            let started = startVerificationRound(for: &project, reason: "User requested changes. Re-verify all updates.")
+            if started {
+                statusMessage = "Changes requested. Started verification round \(project.reviewRound)."
+            }
+            return
+        }
+
+        if finalApproval {
+            guard project.reviewStatus == .waitingFinalApproval else {
+                statusMessage = "Final approval received before verification completed."
+                return
+            }
+            finalizeProject(projectId: project.id)
+        }
+    }
+
+    private func evaluateVerificationCompletion(for project: inout ProjectRecord, completedTask: TaskItem) {
+        let currentRound = completedTask.verificationRound ?? project.reviewRound
+        let roundTasks = taskService.tasks.filter {
+            $0.projectId == project.id &&
+            !$0.isArchived &&
+            $0.isVerificationTask &&
+            ($0.verificationRound ?? 0) == currentRound
+        }
+        guard !roundTasks.isEmpty else { return }
+        let allVerifiedDone = roundTasks.allSatisfy { $0.status == .done && $0.isVerified }
+        guard allVerifiedDone else { return }
+
+        project.reviewStatus = .waitingFinalApproval
+        project.updatedAt = Date()
+        saveUpdated(project)
+
+        statusMessage = "All agents verified round \(currentRound). Waiting for your final approval in project chat."
+    }
+
+    @discardableResult
+    private func startVerificationRound(for project: inout ProjectRecord, reason: String) -> Bool {
+        let maxRounds = 3
+        if project.reviewRound >= maxRounds {
+            project.reviewStatus = .waitingFinalApproval
+            project.updatedAt = Date()
+            saveUpdated(project)
+            statusMessage = "Reached max verification rounds (\(maxRounds)). Waiting for your final approval."
+            return false
+        }
+
+        let nextRound = project.reviewRound + 1
+        let projectColorHex = colorHex(forProjectId: project.id)
+        let agents = ["Jarvis", "Scope", "Atlas", "Matrix", "Prism"]
+
+        for agent in agents {
+            let title = "\(project.title): Final Verification (\(agent)) - Round \(nextRound)"
+            let exists = taskService.tasks.contains {
+                $0.projectId == project.id &&
+                $0.title == title &&
+                !$0.isArchived
+            }
+            if exists { continue }
+
+            _ = taskService.createTask(
+                title: title,
+                description: """
+                \(reason)
+                Review all recent changes for completeness and regressions. If fixes are needed, route them through Jarvis.
+                """,
+                assignedAgent: agent,
+                status: .scheduled,
+                priority: .urgent,
+                scheduledFor: nil,
+                projectId: project.id,
+                projectName: project.title,
+                projectColorHex: projectColorHex,
+                isVerificationTask: true,
+                verificationRound: nextRound,
+                isVerified: false,
+                isArchived: false
+            )
+        }
+
+        project.reviewRound = nextRound
+        project.reviewStatus = .inReview
+        project.updatedAt = Date()
+        saveUpdated(project)
+
+        let kickoff = """
+        [project-verification]
+        Project: \(project.title)
+        Verification Round: \(nextRound)
+        Reason: \(reason)
+        All agents must verify latest state and report to Jarvis.
+        """
+        let sessionKey = project.conversationId
+        Task { [weak self] in
+            guard let self else { return }
+            await self.sendJarvisKickoff(message: kickoff, sessionKey: sessionKey)
+        }
+        return true
+    }
+
+    private func finalizeProject(projectId: String) {
+        guard var project = projects.first(where: { $0.id == projectId }) else { return }
+        project.reviewStatus = .finalApproved
+        project.updatedAt = Date()
+        saveUpdated(project)
+
+        taskService.archiveTasks(for: projectId)
+        statusMessage = "Final approval recorded. All tasks for this project were archived."
+    }
+
+    private func sendJarvisKickoff(message: String, sessionKey: String?) async {
+        _ = try? await gatewayService.sendAgentMessage(
+            agentId: "jarvis",
+            message: message,
+            sessionKey: sessionKey,
+            thinkingEnabled: true
+        )
     }
 
     func handleProjectChatAssistantMessage(conversationId: String, message: String) {
