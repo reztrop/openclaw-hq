@@ -29,3 +29,21 @@ Artifacts verified:
 
 ## Notes
 - During consolidation, in-flight local changes from parallel task execution were absorbed and committed before final verification to guarantee a clean reproducible mainline build.
+
+---
+
+## Re-Verification After tasks.json Reset Recovery
+Date: 2026-02-20 11:33 EST
+Context: Task state was reconstructed from agent session logs after a `tasks.json` reset; re-verified RC integrity and triaged deltas.
+
+Current RC head:
+- `fe293f3` Restore task execution orchestration and harden compaction safety
+- `25f7bc4` Add reduced-motion guards for settings and agent flows
+- `9980032` Fix: never overwrite tasks.json with sample data on load failure
+
+Re-verified (PASS):
+- `swift build -c release`
+- `bash build-app.sh`
+- Installed app updated at: `/Applications/OpenClaw HQ.app`
+
+Remote status: `main` synchronized with `origin/main` (ahead/behind `0/0`).
