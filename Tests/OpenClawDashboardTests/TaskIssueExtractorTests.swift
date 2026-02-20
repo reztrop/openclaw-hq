@@ -107,6 +107,16 @@ final class TaskIssueExtractorTests: XCTestCase {
         XCTAssertTrue(issues.isEmpty)
     }
 
+    func testExtractIssuesIgnoresAddedRegressionCoverageFalsePositiveLine() {
+        let response = """
+        Issue: Added regression coverage for this exact class of false-positive:
+        """
+
+        let issues = TaskIssueExtractor.extractIssues(from: response)
+
+        XCTAssertTrue(issues.isEmpty)
+    }
+
     func testExtractIssuesIgnoresRemediatedOutcomeParserRiskLine() {
         let response = """
         Issue: 2) Outcome parser false-complete risk — PASS (remediated)
