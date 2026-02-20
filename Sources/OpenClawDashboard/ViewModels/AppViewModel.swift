@@ -53,6 +53,7 @@ class AppViewModel: ObservableObject {
     private var routedIssueSignatures: Set<String> = []
     private var orchestrationLoopTask: Task<Void, Never>?
     private var isRunningOrchestrationTick = false
+    private let isTaskAutomationEnabled = false
 
     private var cancellables = Set<AnyCancellable>()
 
@@ -73,14 +74,16 @@ class AppViewModel: ObservableObject {
             guard let self else { return }
             self.projectsViewModel.handleProjectChatUserMessage(conversationId: sessionKey, message: message)
         }
-        tasksViewModel.onTaskMovedToDone = { [weak self] task in
-            guard let self else { return }
-            self.projectsViewModel.handleTaskMovedToDone(task)
-        }
-        tasksViewModel.onTaskMovedToInProgress = { [weak self] task in
-            guard let self else { return }
-            Task { [weak self] in
-                await self?.startImplementation(for: task)
+        if isTaskAutomationEnabled {
+            tasksViewModel.onTaskMovedToDone = { [weak self] task in
+                guard let self else { return }
+                self.projectsViewModel.handleTaskMovedToDone(task)
+            }
+            tasksViewModel.onTaskMovedToInProgress = { [weak self] task in
+                guard let self else { return }
+                Task { [weak self] in
+                    await self?.startImplementation(for: task)
+                }
             }
         }
 
@@ -110,32 +113,34 @@ class AppViewModel: ObservableObject {
             }
             .store(in: &cancellables)
 
-        gatewayService.agentEventSubject
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] event in
-                self?.handleTaskExecutionEvent(event)
-            }
-            .store(in: &cancellables)
-
-        taskService.$tasks
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] _ in
-                Task { [weak self] in
-                    await self?.runTaskOrchestrationTick()
+        if isTaskAutomationEnabled {
+            gatewayService.agentEventSubject
+                .receive(on: DispatchQueue.main)
+                .sink { [weak self] event in
+                    self?.handleTaskExecutionEvent(event)
                 }
-            }
-            .store(in: &cancellables)
+                .store(in: &cancellables)
 
-        taskService.$isExecutionPaused
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] _ in
-                Task { [weak self] in
-                    await self?.runTaskOrchestrationTick()
+            taskService.$tasks
+                .receive(on: DispatchQueue.main)
+                .sink { [weak self] _ in
+                    Task { [weak self] in
+                        await self?.runTaskOrchestrationTick()
+                    }
                 }
-            }
-            .store(in: &cancellables)
+                .store(in: &cancellables)
 
-        startTaskOrchestrationLoop()
+            taskService.$isExecutionPaused
+                .receive(on: DispatchQueue.main)
+                .sink { [weak self] _ in
+                    Task { [weak self] in
+                        await self?.runTaskOrchestrationTick()
+                    }
+                }
+                .store(in: &cancellables)
+
+            startTaskOrchestrationLoop()
+        }
 
         // Check if onboarding is needed
         if !settingsService.settings.onboardingComplete {
@@ -534,6 +539,7 @@ class AppViewModel: ObservableObject {
     }
 
     private func runTaskOrchestrationTick() async {
+        guard isTaskAutomationEnabled else { return }
         guard !isRunningOrchestrationTick else { return }
         guard gatewayService.isConnected else { return }
         guard !taskService.isExecutionPaused else { return }
