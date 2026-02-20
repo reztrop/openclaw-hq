@@ -147,13 +147,14 @@ enum TaskIssueExtractor {
     static func isVerificationStatusSignal(_ text: String) -> Bool {
         let normalized = text.trimmingCharacters(in: .whitespacesAndNewlines)
         let strippedIssuePrefix = normalized.replacingOccurrences(of: #"^issue:\s*"#, with: "", options: [.regularExpression, .caseInsensitive])
+        let normalizedForCheck = strippedIssuePrefix.trimmingCharacters(in: .whitespacesAndNewlines)
 
-        let hasCheckPrefix = normalized.hasPrefix("checked ") || normalized.hasPrefix("check: ")
-        let hasConfirmation = normalized.contains("confirmed")
-        let confirmsExistingPath = normalized.contains("already exists")
-            || normalized.contains("exists in")
-            || normalized.contains("is present in")
-        let confirmsServiceBoundary = normalized.contains("remains in") || normalized.contains("delegation path")
+        let hasCheckPrefix = normalizedForCheck.hasPrefix("checked ") || normalizedForCheck.hasPrefix("check: ")
+        let hasConfirmation = normalizedForCheck.contains("confirmed")
+        let confirmsExistingPath = normalizedForCheck.contains("already exists")
+            || normalizedForCheck.contains("exists in")
+            || normalizedForCheck.contains("is present in")
+        let confirmsServiceBoundary = normalizedForCheck.contains("remains in") || normalizedForCheck.contains("delegation path")
 
         if hasCheckPrefix && hasConfirmation && (confirmsExistingPath || confirmsServiceBoundary) {
             return true
@@ -163,13 +164,13 @@ enum TaskIssueExtractor {
             return true
         }
 
-        let mentionsPartialProgress = normalized.contains("partial progress")
-        let mentionsPartialWork = normalized.contains("partial work")
-        let continuesFromState = normalized.contains("continued from that state")
-            || normalized.contains("continued from the state")
-        let mentionsWorkInTree = normalized.contains("work in-tree") || normalized.contains("work in tree")
-        let mentionsRegressionTestsAddedNotGreen = normalized.contains("regression tests")
-            && (normalized.contains("not yet green") || normalized.contains("not green yet"))
+        let mentionsPartialProgress = normalizedForCheck.contains("partial progress")
+        let mentionsPartialWork = normalizedForCheck.contains("partial work")
+        let continuesFromState = normalizedForCheck.contains("continued from that state")
+            || normalizedForCheck.contains("continued from the state")
+        let mentionsWorkInTree = normalizedForCheck.contains("work in-tree") || normalizedForCheck.contains("work in tree")
+        let mentionsRegressionTestsAddedNotGreen = normalizedForCheck.contains("regression tests")
+            && (normalizedForCheck.contains("not yet green") || normalizedForCheck.contains("not green yet"))
 
         if hasCheckPrefix
             && (mentionsPartialProgress || mentionsPartialWork)
@@ -181,9 +182,9 @@ enum TaskIssueExtractor {
             && strippedIssuePrefix.contains("regression evidence commit")
             && (strippedIssuePrefix.contains("is present") || strippedIssuePrefix.contains("already present"))
 
-        let confirmsExistingFixPresence = normalized.contains("existing fix present in")
-            || normalized.contains("fix is present in")
-            || normalized.contains("fix present in")
+        let confirmsExistingFixPresence = normalizedForCheck.contains("existing fix present in")
+            || normalizedForCheck.contains("fix is present in")
+            || normalizedForCheck.contains("fix present in")
 
         let hasCommitHash = strippedIssuePrefix.range(of: #"\b[0-9a-f]{7,40}\b"#, options: .regularExpression) != nil
         let isSatisfiedRegressionIssueLine = hasCommitHash
@@ -195,8 +196,8 @@ enum TaskIssueExtractor {
             && (strippedIssuePrefix.contains("already present") || strippedIssuePrefix.contains("already exists") || strippedIssuePrefix.contains("is already present"))
             && hasCommitHash
 
-        let recordsClosure = normalized.contains("records closure") || normalized.contains("recorded closure")
-        let notBlocked = normalized.contains("not blocked")
+        let recordsClosure = normalizedForCheck.contains("records closure") || normalizedForCheck.contains("recorded closure")
+        let notBlocked = normalizedForCheck.contains("not blocked")
         let closureConfirmation = recordsClosure && notBlocked
 
         return confirmsRegressionEvidenceCommitPresence

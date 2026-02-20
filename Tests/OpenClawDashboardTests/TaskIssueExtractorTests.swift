@@ -320,6 +320,16 @@ final class TaskIssueExtractorTests: XCTestCase {
         XCTAssertTrue(issues.isEmpty)
     }
 
+    func testExtractIssuesIgnoresIssuePrefixedVerificationLine() {
+        let response = """
+        Issue: Checked existing progress first: this issue was already remediated in prior commits (`161355f`, parser marker hardening).
+        """
+
+        let issues = TaskIssueExtractor.extractIssues(from: response)
+
+        XCTAssertTrue(issues.isEmpty)
+    }
+
     func testExtractIssuesIgnoresResolvedIssueClassificationBugLine() {
         let response = """
         Issue: Resolved issue classification bug
