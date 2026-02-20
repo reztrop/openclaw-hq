@@ -127,5 +127,25 @@ final class AppViewModelIssueExtractionTests: XCTestCase {
         let issues = TaskIssueExtractor.extractIssues(from: response)
         XCTAssertTrue(issues.isEmpty)
     }
+
+    func testExtractIssuesIgnoresScreenRecordingNotGrantedWithCheckmarkPrefix() {
+        let response = """
+        Issue: ✅ Screen Recording Not Granted
+        [task-blocked]
+        """
+
+        let issues = TaskIssueExtractor.extractIssues(from: response)
+        XCTAssertTrue(issues.isEmpty)
+    }
+
+    func testExtractIssuesIgnoresAccessibilityNotGrantedWithCheckmarkPrefix() {
+        let response = """
+        Issue: ✅ Accessibility Not Granted
+        [task-blocked]
+        """
+
+        let issues = TaskIssueExtractor.extractIssues(from: response)
+        XCTAssertTrue(issues.isEmpty)
+    }
 }
 
