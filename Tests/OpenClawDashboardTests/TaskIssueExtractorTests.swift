@@ -97,6 +97,16 @@ final class TaskIssueExtractorTests: XCTestCase {
         XCTAssertTrue(issues.isEmpty)
     }
 
+    func testExtractIssuesIgnoresAddedModeRegressionCoverageLine() {
+        let response = """
+        Issue: Added `--mode local|live|both` so drift/regressions are caught against runtime bundles.
+        """
+
+        let issues = TaskIssueExtractor.extractIssues(from: response)
+
+        XCTAssertTrue(issues.isEmpty)
+    }
+
     func testExtractIssuesIgnoresRemediatedOutcomeParserRiskLine() {
         let response = """
         Issue: 2) Outcome parser false-complete risk — PASS (remediated)

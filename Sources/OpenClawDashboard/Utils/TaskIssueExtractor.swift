@@ -92,6 +92,7 @@ enum TaskIssueExtractor {
         let normalized = text
             .replacingOccurrences(of: "-", with: " ")
             .replacingOccurrences(of: "_", with: " ")
+            .replacingOccurrences(of: "/", with: " ")
             .replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
             .trimmingCharacters(in: .whitespacesAndNewlines)
 
@@ -108,8 +109,10 @@ enum TaskIssueExtractor {
 
         let addedRegressionCheck = normalized.range(of: #"\badded\s+regression\s+checks?\b"#, options: [.regularExpression, .caseInsensitive]) != nil
             || normalized.range(of: #"\badded\s+regression\s+tests?\b"#, options: [.regularExpression, .caseInsensitive]) != nil
+        let addedModeRegressionCoverage = text.contains("--mode")
+            && normalized.range(of: #"\badded\b.*\b(drift|regressions?)\b"#, options: [.regularExpression, .caseInsensitive]) != nil
         let hasFailureSignal = normalized.range(of: #"\b(fail|failed|failing|error|problem)\b"#, options: [.regularExpression, .caseInsensitive]) != nil
-        let addedRegressionCheckSignal = addedRegressionCheck && !hasFailureSignal
+        let addedRegressionCheckSignal = (addedRegressionCheck || addedModeRegressionCoverage) && !hasFailureSignal
 
         return (hasResolution && hasIssueAnchor) || addedRegressionCheckSignal
     }
