@@ -53,6 +53,16 @@ final class VisualScopeLockGuardrailTests: XCTestCase {
             context: "AppViewModel"
         )
 
+        assertSource(
+            appSource,
+            doesNotContain: [
+                "setExecutionPaused(true)",
+                "sendAgentMessage(agentId:",
+                "dominantIssue"
+            ],
+            context: "AppViewModel"
+        )
+
         let serviceSource = try loadSource("Sources/OpenClawDashboard/Services/TaskInterventionService.swift")
         assertSource(
             serviceSource,
