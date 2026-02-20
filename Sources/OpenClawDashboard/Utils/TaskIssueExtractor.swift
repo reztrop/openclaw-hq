@@ -30,12 +30,14 @@ enum TaskIssueExtractor {
             guard !isTaskOutcomeMarker(strippedIssuePrefix) else { continue }
             guard containsIssueSignal(lowered) else { continue }
             guard !isIssueNegated(lowered) else { continue }
+            guard !isIssueHeading(lowered) else { continue }
+            guard !isIssueResolvedSignal(lowered) else { continue }
             guard !isExternalDependencySignal(lowered) else { continue }
             if line.count < 12 { continue }
             issues.append(line)
         }
 
-        if issues.isEmpty && containsIssueSignal(lower) && !isIssueNegated(lower) && !isExternalDependencySignal(lower) {
+        if issues.isEmpty && containsIssueSignal(lower) && !isIssueNegated(lower) && !isIssueResolvedSignal(lower) && !isExternalDependencySignal(lower) {
             let summary = contentOnly
                 .replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
                 .trimmingCharacters(in: .whitespacesAndNewlines)
@@ -74,6 +76,24 @@ enum TaskIssueExtractor {
             "no regression", "no regressions", "no fix required", "nothing to fix"
         ]
         return negations.contains { text.contains($0) }
+    }
+
+    static func isIssueHeading(_ text: String) -> Bool {
+        let normalized = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        let headingPatterns = [
+            "issues:", "issue:", "remaining issues:", "known issues:", "open issues:"
+        ]
+        return headingPatterns.contains(normalized)
+    }
+
+    static func isIssueResolvedSignal(_ text: String) -> Bool {
+        let resolutionSignals = [
+            "resolved", "remediated", "fixed", "addressed", "completed", "closed"
+        ]
+        let issueAnchors = ["issue", "issues", "regression", "regressions", "bug", "error", "failure", "problem"]
+        let hasResolution = resolutionSignals.contains { text.contains($0) }
+        let hasIssueAnchor = issueAnchors.contains { text.contains($0) }
+        return hasResolution && hasIssueAnchor
     }
 
     static func isExternalDependencySignal(_ text: String) -> Bool {
