@@ -211,11 +211,24 @@ struct ChatView: View {
 
     private var topBar: some View {
         HStack(spacing: 10) {
-            Text("TERMINAL_CHAT")
-                .font(.system(.title3, design: .monospaced))
-                .fontWeight(.bold)
-                .foregroundColor(Theme.neonCyan)
-                .fixedSize()
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 8) {
+                    Image(systemName: "terminal")
+                        .font(.system(size: 12, weight: .semibold, design: .monospaced))
+                        .foregroundColor(Theme.neonCyan)
+                    Text("TERMINAL_CHAT")
+                        .font(.system(.title3, design: .monospaced))
+                        .fontWeight(.bold)
+                        .foregroundColor(Theme.neonCyan)
+                        .fixedSize()
+                }
+
+                Text(headerStatusLine())
+                    .font(.system(.caption2, design: .monospaced))
+                    .foregroundColor(Theme.textMuted)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+            }
 
             // Agent picker
             Picker("Agent", selection: $chatVM.selectedAgentId) {
@@ -352,12 +365,12 @@ struct ChatView: View {
                             .frame(width: 28, height: 14)
 
                         if chatVM.streamingStatusLine.isEmpty {
-                            Text("\(selectedAgentName()) is working…")
-                                .font(.caption)
+                            Text("status> \(selectedAgentName().lowercased()) is working…")
+                                .font(.system(.caption, design: .monospaced))
                                 .foregroundColor(Theme.textMuted)
                         } else {
-                            Text(chatVM.streamingStatusLine)
-                                .font(.caption)
+                            Text("status> \(chatVM.streamingStatusLine)")
+                                .font(.system(.caption, design: .monospaced))
                                 .foregroundColor(Theme.textSecondary)
                                 .lineLimit(1)
                                 .truncationMode(.tail)
@@ -413,9 +426,27 @@ struct ChatView: View {
         HStack {
             if message.isUser { Spacer() }
             VStack(alignment: .leading, spacing: 6) {
-                Text(message.isUser ? "You" : selectedAgentName())
-                    .font(.caption2)
-                    .foregroundColor(Theme.textMuted)
+                HStack(spacing: 8) {
+                    Text(message.isUser ? "USER" : selectedAgentName().uppercased())
+                        .font(.system(.caption2, design: .monospaced))
+                        .fontWeight(.semibold)
+                        .foregroundColor(message.isUser ? Theme.jarvisBlue : Theme.terminalGreen)
+                        .padding(.horizontal, 7)
+                        .padding(.vertical, 3)
+                        .background((message.isUser ? Theme.jarvisBlue : Theme.terminalGreen).opacity(0.12))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 5)
+                                .stroke((message.isUser ? Theme.jarvisBlue : Theme.terminalGreen).opacity(0.45), lineWidth: 1)
+                        )
+                        .cornerRadius(5)
+
+                    if !message.isUser {
+                        Text(selectedAgentRole())
+                            .font(.caption2)
+                            .foregroundColor(Theme.textMuted)
+                    }
+                }
+
                 Text(message.text)
                     .font(.system(.body, design: .monospaced))
                     .foregroundColor(message.isUser ? Theme.textPrimary : Theme.terminalGreen)
@@ -694,6 +725,17 @@ struct ChatView: View {
 
     private func selectedAgentName() -> String {
         agentsVM.agents.first(where: { $0.id == chatVM.selectedAgentId })?.name ?? "Agent"
+    }
+
+    private func selectedAgentRole() -> String {
+        Theme.agentRole(for: selectedAgentName())
+    }
+
+    private func headerStatusLine() -> String {
+        let mode = chatVM.selectedConversationIsLockedToAgent ? "session:locked" : "session:draft"
+        let agent = "agent:\(selectedAgentName().lowercased())"
+        let role = "role:\(selectedAgentRole().lowercased().replacingOccurrences(of: " ", with: "-"))"
+        return "\(mode) · \(agent) · \(role)"
     }
 
     private func currentModelLabel() -> String {
