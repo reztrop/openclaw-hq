@@ -57,7 +57,10 @@ final class TaskInterventionService {
         // Trigger only when the same issue repeats across multiple active tasks.
         guard dominantCount >= 3 else { return nil }
 
-        let fingerprint = "\(dominantIssue)|\(affectedTasks.map { $0.id.uuidString }.sorted().joined(separator: ","))"
+        // Cooldown should apply to the recurring issue itself, not the specific task IDs.
+        // Task IDs churn as retries regenerate tasks, but repeated interventions for the
+        // same dominant issue within the cooldown window should still be suppressed.
+        let fingerprint = dominantIssue
         let now = now()
         if lastInterventionFingerprint == fingerprint,
            let last = lastInterventionAt,
