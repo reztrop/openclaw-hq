@@ -367,6 +367,12 @@ class ProjectsViewModel: ObservableObject {
             created += 1
         }
 
+        created += createSectionWorkflowTasks(
+            for: project,
+            projectName: projectName,
+            projectColorHex: projectColorHex
+        )
+
         // Kick off execution orchestration in Jarvis session as a background instruction.
         let kickoffMessage = """
         [project-execute]
@@ -391,6 +397,80 @@ class ProjectsViewModel: ObservableObject {
         statusMessage = created == 0
             ? "Execution already initialized for this project."
             : "Execution started. Created \(created) task(s) in Ready."
+    }
+
+
+    private func createSectionWorkflowTasks(for project: ProjectRecord, projectName: String, projectColorHex: String) -> Int {
+        let sourceSections = project.blueprint.sections.filter { $0.completed }
+        let sections = sourceSections.isEmpty ? project.blueprint.sections : sourceSections
+        guard !sections.isEmpty else { return 0 }
+
+        let designContext = conciseContext(project.blueprint.designText)
+        let draftContext = conciseContext(project.blueprint.sectionsDraftText)
+
+        var created = 0
+        for section in sections {
+            let scopedTitle = "\(projectName): Build \(section.title) core workflow"
+            let alreadyExists = taskService.tasks.contains {
+                $0.projectId == project.id && $0.title == scopedTitle
+            }
+            if alreadyExists { continue }
+
+            let description = """
+            Deliver the primary user workflow for \(section.title).
+
+            Section goal:
+            \(section.summary)
+
+            Design plan context:
+            \(designContext)
+
+            Approved sections context:
+            \(draftContext)
+
+            Constraints:
+            - Keep the task independently completable.
+            - Avoid task switching across unrelated sections.
+            - Hand off to Jarvis when implementation is review-ready.
+            """
+
+            _ = taskService.createTask(
+                title: scopedTitle,
+                description: description,
+                assignedAgent: normalizedAgent(section.ownerAgent),
+                status: .scheduled,
+                priority: section.completed ? .high : .medium,
+                scheduledFor: nil,
+                projectId: project.id,
+                projectName: projectName,
+                projectColorHex: projectColorHex,
+                isVerificationTask: false,
+                verificationRound: nil,
+                isVerified: false,
+                isArchived: false
+            )
+            created += 1
+        }
+
+        return created
+    }
+
+    private func conciseContext(_ text: String, fallback: String = "No additional context captured yet.") -> String {
+        let cleaned = text
+            .replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+
+        guard !cleaned.isEmpty else { return fallback }
+        let maxLength = 420
+        if cleaned.count <= maxLength { return cleaned }
+        let prefix = cleaned.prefix(maxLength)
+        return "\(prefix)…"
+    }
+
+    private func normalizedAgent(_ raw: String) -> String {
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.isEmpty { return "Matrix" }
+        return trimmed
     }
 
     func reconcilePendingPlanningFromChatHistory() async {
