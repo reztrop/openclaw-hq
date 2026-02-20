@@ -57,6 +57,16 @@ final class TaskIssueExtractorTests: XCTestCase {
         XCTAssertTrue(issues.isEmpty)
     }
 
+    func testExtractIssuesIgnoresRemediatedOutcomeParserRiskLine() {
+        let response = """
+        Issue: 2) Outcome parser false-complete risk — PASS (remediated)
+        """
+
+        let issues = TaskIssueExtractor.extractIssues(from: response)
+
+        XCTAssertTrue(issues.isEmpty)
+    }
+
     func testExtractIssuesKeepsFailingRegressionStatus() {
         let response = """
         FAIL: task-1300 regression checks complete with keyboard trap issue in model picker
