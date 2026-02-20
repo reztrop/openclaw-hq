@@ -95,5 +95,16 @@ final class AppViewModelIssueExtractionTests: XCTestCase {
         let issues = TaskIssueExtractor.extractIssues(from: response)
         XCTAssertTrue(issues.isEmpty)
     }
+
+    func testExtractIssuesIgnoresHostLevelUiAutomationDependencyNarrative() {
+        let response = """
+        Issue: Matrix remediation branch has new commits, but this specific evidence-matrix task remains blocked on host-level UI automation permissions before compact/default/wide tab verification can be executed and evidenced.
+        Dependency: requires host UI automation permission grant before evidence run.
+        [task-blocked]
+        """
+
+        let issues = TaskIssueExtractor.extractIssues(from: response)
+        XCTAssertTrue(issues.isEmpty)
+    }
 }
 
