@@ -35,6 +35,7 @@ private func providerIcon(_ id: String) -> String {
 struct SettingsView: View {
     @EnvironmentObject var settingsService: SettingsService
     @EnvironmentObject var gatewayService: GatewayService
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     // Gateway fields
     @State private var host: String = ""
@@ -286,10 +287,10 @@ struct SettingsView: View {
             gatewayService.connect(host: host, port: portInt, token: token)
         }
 
-        withAnimation { savedConfirmation = true }
+        Motion.perform(reduceMotion) { savedConfirmation = true }
         Task {
             try? await Task.sleep(for: .seconds(2))
-            withAnimation { savedConfirmation = false }
+            Motion.perform(reduceMotion) { savedConfirmation = false }
         }
     }
 

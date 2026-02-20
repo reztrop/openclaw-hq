@@ -6,6 +6,7 @@ struct EditAgentView: View {
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject var agentsVM: AgentsViewModel
     @EnvironmentObject var gatewayService: GatewayService
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @State private var agentName: String
     @State private var agentTitle: String
@@ -211,7 +212,7 @@ struct EditAgentView: View {
                 activeAvatarPath: activeImagePath,
                 idleAvatarPath: idleImagePath
             )
-            withAnimation { savedConfirmation = true }
+            Motion.perform(reduceMotion) { savedConfirmation = true }
             Task {
                 try? await Task.sleep(for: .seconds(1.5))
                 dismiss()

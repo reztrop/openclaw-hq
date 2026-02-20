@@ -4,6 +4,7 @@ struct AgentCommandView: View {
     let agent: Agent
     @StateObject private var commandVM: CommandViewModel
     @State private var inputText = ""
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     init(agent: Agent, gatewayService: GatewayService) {
         self.agent = agent
@@ -37,7 +38,7 @@ struct AgentCommandView: View {
                     .padding(.vertical, 12)
                 }
                 .onChange(of: commandVM.commandHistory.count) { _, _ in
-                    withAnimation {
+                    Motion.perform(reduceMotion) {
                         scrollProxy.scrollTo("waiting", anchor: .bottom)
                     }
                 }
