@@ -34,9 +34,9 @@ class AppViewModel: ObservableObject {
     @Published var isMainSidebarCollapsed: Bool = false
     @Published var isCompactWindow: Bool = false
 
-    let settingsService = SettingsService()
-    let gatewayService = GatewayService()
-    let taskService = TaskService()
+    let settingsService: SettingsService
+    let gatewayService: GatewayService
+    let taskService: TaskService
     lazy var agentsViewModel = AgentsViewModel(gatewayService: gatewayService, settingsService: settingsService, taskService: taskService)
     lazy var chatViewModel = ChatViewModel(gatewayService: gatewayService, settingsService: settingsService)
     lazy var projectsViewModel = ProjectsViewModel(gatewayService: gatewayService, taskService: taskService)
@@ -46,20 +46,53 @@ class AppViewModel: ObservableObject {
     lazy var gatewayStatusViewModel = GatewayStatusViewModel(gatewayService: gatewayService)
     lazy var activityLogViewModel = ActivityLogViewModel(gatewayService: gatewayService)
     private var notificationService: NotificationService?
-    private lazy var taskInterventionService = TaskInterventionService(taskService: taskService, gatewayService: gatewayService)
-    private lazy var taskCompactionService = TaskCompactionService(taskService: taskService, gatewayService: gatewayService)
-    private lazy var taskExecutionService = TaskExecutionService(
-        taskService: taskService,
-        gatewayService: gatewayService,
-        onTaskCompleted: { [weak self] task in
-            guard let self else { return }
-            self.projectsViewModel.handleTaskMovedToDone(task)
-        }
-    )
+    private let taskInterventionService: TaskInterventionService
+    private let taskCompactionService: TaskCompactionService
+    private var taskExecutionService: TaskExecutionService?
 
     private var cancellables = Set<AnyCancellable>()
 
-    init() {
+    convenience init() {
+        self.init(
+            settingsService: SettingsService(),
+            gatewayService: GatewayService(),
+            taskService: TaskService()
+        )
+    }
+
+    init(
+        settingsService: SettingsService,
+        gatewayService: GatewayService,
+        taskService: TaskService,
+        taskInterventionService: TaskInterventionService? = nil,
+        taskCompactionService: TaskCompactionService? = nil,
+        taskExecutionService: TaskExecutionService? = nil,
+        notificationService: NotificationService? = nil,
+        connectGatewayOnInit: Bool = true,
+        enableNotifications: Bool = true
+    ) {
+        self.settingsService = settingsService
+        self.gatewayService = gatewayService
+        self.taskService = taskService
+        self.taskInterventionService = taskInterventionService
+            ?? TaskInterventionService(taskService: taskService, gatewayService: gatewayService)
+        self.taskCompactionService = taskCompactionService
+            ?? TaskCompactionService(taskService: taskService, gatewayService: gatewayService)
+        self.notificationService = notificationService
+        self.taskExecutionService = taskExecutionService
+
+        if self.taskExecutionService == nil {
+            let onTaskCompleted: (TaskItem) -> Void = { [weak self] task in
+                guard let self else { return }
+                self.projectsViewModel.handleTaskMovedToDone(task)
+            }
+            self.taskExecutionService = TaskExecutionService(
+                taskService: taskService,
+                gatewayService: gatewayService,
+                onTaskCompleted: onTaskCompleted
+            )
+        }
+
         chatViewModel.onProjectPlanningStarted = { [weak self] sessionKey, userPrompt in
             guard let self else { return }
             self.projectsViewModel.registerProjectPlanningStarted(conversationId: sessionKey, userPrompt: userPrompt)
@@ -82,12 +115,16 @@ class AppViewModel: ObservableObject {
         }
         tasksViewModel.onTaskMovedToInProgress = { [weak self] task in
             guard let self else { return }
-            self.taskExecutionService.handleTaskMovedToInProgress(task)
+            self.taskExecutionService?.handleTaskMovedToInProgress(task)
         }
 
         // Set up notifications
-        notificationService = NotificationService(settingsService: settingsService, gatewayService: gatewayService)
-        notificationService?.requestPermission()
+        if enableNotifications {
+            if self.notificationService == nil {
+                self.notificationService = NotificationService(settingsService: settingsService, gatewayService: gatewayService)
+            }
+            self.notificationService?.requestPermission()
+        }
 
         // Monitor gateway connection
         gatewayService.$connectionState
@@ -132,7 +169,7 @@ class AppViewModel: ObservableObject {
         if !settingsService.settings.onboardingComplete {
             showOnboarding = true
             isLoading = false
-        } else {
+        } else if connectGatewayOnInit {
             // Normal startup: connect gateway using saved settings
             let s = settingsService.settings
             gatewayService.connect(host: s.gatewayHost, port: s.gatewayPort, token: s.authToken)
@@ -144,6 +181,8 @@ class AppViewModel: ObservableObject {
                     isLoading = false
                 }
             }
+        } else {
+            isLoading = false
         }
     }
 
