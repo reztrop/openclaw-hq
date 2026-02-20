@@ -84,4 +84,16 @@ final class AppViewModelIssueExtractionTests: XCTestCase {
         let issues = TaskIssueExtractor.extractIssues(from: response)
         XCTAssertTrue(issues.isEmpty)
     }
+
+    func testExtractIssuesIgnoresPassingTestResultSummary() {
+        let response = """
+        Task: Fix: Result: **5 tests passed, 0 failures**
+        Issue: Result: **5 tests passed, 0 failures**
+        [task-start]
+        """
+
+        let issues = TaskIssueExtractor.extractIssues(from: response)
+        XCTAssertTrue(issues.isEmpty)
+    }
 }
+

@@ -105,6 +105,11 @@ enum TaskIssueExtractor {
         if normalized.range(of: #"\((pass|passed|ok|success)\)\s*:\s*"#, options: [.regularExpression, .caseInsensitive]) != nil {
             return true
         }
+        if normalized.range(of: #"\b\d+\s+tests?\s+passed\b"#, options: [.regularExpression, .caseInsensitive]) != nil {
+            if normalized.range(of: #"\b0\s+fail(?:ed|ures?)\b"#, options: [.regularExpression, .caseInsensitive]) != nil {
+                return true
+            }
+        }
         let passingSignals = [
             "all checks passed",
             "no regressions found"
