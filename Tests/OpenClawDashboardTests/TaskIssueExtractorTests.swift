@@ -2,6 +2,28 @@ import XCTest
 @testable import OpenClawDashboard
 
 final class TaskIssueExtractorTests: XCTestCase {
+    func testTaskOutcomeMarkerRequiresExactBracketMarker() {
+        XCTAssertFalse(TaskIssueExtractor.isTaskOutcomeMarker("status: complete"))
+        XCTAssertFalse(TaskIssueExtractor.isTaskOutcomeMarker("status: blocked"))
+        XCTAssertFalse(TaskIssueExtractor.isTaskOutcomeMarker("status: continue"))
+        XCTAssertFalse(TaskIssueExtractor.isTaskOutcomeMarker("done"))
+        XCTAssertFalse(TaskIssueExtractor.isTaskOutcomeMarker("completed"))
+
+        XCTAssertTrue(TaskIssueExtractor.isTaskOutcomeMarker("[task-complete]"))
+        XCTAssertTrue(TaskIssueExtractor.isTaskOutcomeMarker("[task-blocked]"))
+        XCTAssertTrue(TaskIssueExtractor.isTaskOutcomeMarker("[task-continue]"))
+    }
+
+    func testTaskMarkerInstructionDetectionDoesNotUseFuzzyFallbacks() {
+        XCTAssertFalse(TaskIssueExtractor.containsTaskMarkerInstruction("status: complete"))
+        XCTAssertFalse(TaskIssueExtractor.containsTaskMarkerInstruction("status: blocked"))
+        XCTAssertFalse(TaskIssueExtractor.containsTaskMarkerInstruction("status: continue"))
+        XCTAssertFalse(TaskIssueExtractor.containsTaskMarkerInstruction("done"))
+        XCTAssertFalse(TaskIssueExtractor.containsTaskMarkerInstruction("completed"))
+
+        XCTAssertTrue(TaskIssueExtractor.containsTaskMarkerInstruction("end with [task-complete]"))
+    }
+
     func testExtractIssuesIgnoresRemediatedBaselineRegressions() {
         let response = """
         Update complete.
