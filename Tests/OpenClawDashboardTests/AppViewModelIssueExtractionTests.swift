@@ -25,11 +25,22 @@ final class AppViewModelIssueExtractionTests: XCTestCase {
 
     func testExtractIssuesKeepsRealBlockerText() {
         let response = """
-        - Blocked: Screen Recording permission is not granted for Peekaboo.
+        - Blocked: API auth token is invalid for gateway calls.
         [task-blocked]
         """
 
         let issues = TaskIssueExtractor.extractIssues(from: response)
-        XCTAssertEqual(issues, ["Blocked: Screen Recording permission is not granted for Peekaboo."])
+        XCTAssertEqual(issues, ["Blocked: API auth token is invalid for gateway calls."])
+    }
+
+    func testExtractIssuesIgnoresHostPermissionDependencyBlockers() {
+        let response = """
+        Issue: Compact/default/wide matrix evidence: still blocked by host permissions.
+        Dependency: host-level UI automation permissions required before compact/default/wide evidence can run.
+        [task-blocked]
+        """
+
+        let issues = TaskIssueExtractor.extractIssues(from: response)
+        XCTAssertTrue(issues.isEmpty)
     }
 }

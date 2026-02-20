@@ -30,11 +30,12 @@ enum TaskIssueExtractor {
             guard !isTaskOutcomeMarker(strippedIssuePrefix) else { continue }
             guard containsIssueSignal(lowered) else { continue }
             guard !isIssueNegated(lowered) else { continue }
+            guard !isExternalDependencySignal(lowered) else { continue }
             if line.count < 12 { continue }
             issues.append(line)
         }
 
-        if issues.isEmpty && containsIssueSignal(lower) && !isIssueNegated(lower) {
+        if issues.isEmpty && containsIssueSignal(lower) && !isIssueNegated(lower) && !isExternalDependencySignal(lower) {
             let summary = contentOnly
                 .replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
                 .trimmingCharacters(in: .whitespacesAndNewlines)
@@ -73,5 +74,17 @@ enum TaskIssueExtractor {
             "no regression", "no regressions", "no fix required", "nothing to fix"
         ]
         return negations.contains { text.contains($0) }
+    }
+
+    static func isExternalDependencySignal(_ text: String) -> Bool {
+        let externalSignals = [
+            "blocked by host permission",
+            "blocked by host permissions",
+            "host-level ui automation permissions required",
+            "dependency: host-level",
+            "screen recording permission",
+            "accessibility permission"
+        ]
+        return externalSignals.contains { text.contains($0) }
     }
 }
