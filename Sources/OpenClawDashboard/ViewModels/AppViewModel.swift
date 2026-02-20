@@ -49,6 +49,7 @@ class AppViewModel: ObservableObject {
     private var activeTaskRuns: Set<UUID> = []
     private var activeAgentRuns: Set<String> = []
     private var taskNextEligibleAt: [UUID: Date] = [:]
+    private var verificationEscalationAt: [UUID: Date] = [:]
     private var orchestrationLoopTask: Task<Void, Never>?
     private var isRunningOrchestrationTick = false
 
@@ -228,7 +229,7 @@ class AppViewModel: ObservableObject {
                 taskService.appendTaskEvidence(current.id, text: "Run completed with no assistant text.")
             }
 
-            let outcome = taskOutcome(from: finalText)
+            let outcome = taskOutcome(for: current, from: finalText)
             switch outcome {
             case .complete:
                 taskService.moveTask(current.id, to: .done)
@@ -306,7 +307,7 @@ class AppViewModel: ObservableObject {
         case blocked
     }
 
-    private func taskOutcome(from response: String) -> TaskOutcome {
+    private func taskOutcome(for task: TaskItem, from response: String) -> TaskOutcome {
         let lower = response.lowercased()
         if lower.contains("[task-complete]") || lower.contains("status: complete") {
             return .complete
@@ -317,10 +318,25 @@ class AppViewModel: ObservableObject {
         if lower.contains("[task-continue]") || lower.contains("status: continue") {
             return .continueWork
         }
+        if task.isVerificationTask && hasVerificationScopeGap(lower) {
+            return .blocked
+        }
         if lower.contains("completed") || lower.contains("done") {
             return .complete
         }
         return .continueWork
+    }
+
+    private func hasVerificationScopeGap(_ lower: String) -> Bool {
+        let patterns = [
+            "scope gaps",
+            "out of scope for current evidence",
+            "no implementation/execution artifact",
+            "no pr/branch/commit range/files",
+            "cannot proceed without jarvis-provided execution artifact scope",
+            "missing execution artifact"
+        ]
+        return patterns.contains { lower.contains($0) }
     }
 
     private func startTaskOrchestrationLoop() {
@@ -419,6 +435,10 @@ class AppViewModel: ObservableObject {
     }
 
     private func requestJarvisUnblockForVerification(task: TaskItem, blockedResponse: String) async {
+        if let last = verificationEscalationAt[task.id], Date().timeIntervalSince(last) < 180 {
+            return
+        }
+        verificationEscalationAt[task.id] = Date()
         let projectName = task.projectName?.isEmpty == false ? (task.projectName ?? "Unspecified") : "Unspecified"
         let message = """
         [verification-unblock]
