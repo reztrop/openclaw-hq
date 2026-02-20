@@ -202,11 +202,13 @@ enum TaskIssueExtractor {
         let hostPermissionBlocker = hasHostPermissionStem && normalized.contains("blocker")
         let blockedByHostPermission = hasHostPermissionStem && normalized.contains("blocked")
         let requiredHostPermission = hasHostPermissionStem && normalized.contains("required")
+        let hostPermissionMissingSequence = normalized.range(of: #"host permissions?.*missing"#, options: [.regularExpression, .caseInsensitive]) != nil
 
         return missingHostPermission
             || hostPermissionBlocker
             || blockedByHostPermission
             || requiredHostPermission
+            || hostPermissionMissingSequence
             || hasHostLevelUiAutomationPermission
     }
 }

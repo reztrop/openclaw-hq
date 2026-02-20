@@ -64,6 +64,16 @@ final class AppViewModelIssueExtractionTests: XCTestCase {
         XCTAssertTrue(issues.isEmpty)
     }
 
+    func testExtractIssuesIgnoresHostPermissionMissingSequence() {
+        let response = """
+        Issue: host permissions remain missing for the evidence capture.
+        [task-blocked]
+        """
+
+        let issues = TaskIssueExtractor.extractIssues(from: response)
+        XCTAssertTrue(issues.isEmpty)
+    }
+
     func testExtractIssuesIgnoresTruncatedHostPermissionBlockersInTaskTitles() {
         let response = """
         Task: Fix: Compact/default/wide matrix evidence is still blocked by host permissi...
