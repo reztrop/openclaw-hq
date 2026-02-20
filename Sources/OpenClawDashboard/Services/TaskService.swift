@@ -8,6 +8,9 @@ class TaskService: ObservableObject {
 
     private let filePath: String
     private let stateFilePath: String
+    private var lastTasksFileModificationDate: Date?
+    private var lastStateFileModificationDate: Date?
+    private var filePollTask: Task<Void, Never>?
 
     private struct TaskRuntimeState: Codable {
         var isExecutionPaused: Bool
@@ -18,6 +21,12 @@ class TaskService: ObservableObject {
         self.stateFilePath = stateFilePath
         loadTasks()
         loadRuntimeState()
+        refreshKnownFileModificationDates()
+        startFilePolling()
+    }
+
+    deinit {
+        filePollTask?.cancel()
     }
 
     // MARK: - Persistence
@@ -47,6 +56,7 @@ class TaskService: ObservableObject {
             encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
             let data = try encoder.encode(tasks)
             try data.write(to: URL(fileURLWithPath: filePath), options: .atomic)
+            lastTasksFileModificationDate = fileModificationDate(at: filePath)
         } catch {
             print("[TaskService] Failed to save tasks: \(error)")
         }
@@ -75,9 +85,46 @@ class TaskService: ObservableObject {
             encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
             let data = try encoder.encode(state)
             try data.write(to: URL(fileURLWithPath: stateFilePath), options: .atomic)
+            lastStateFileModificationDate = fileModificationDate(at: stateFilePath)
         } catch {
             print("[TaskService] Failed to save runtime state: \(error)")
         }
+    }
+
+    private func startFilePolling() {
+        filePollTask?.cancel()
+        filePollTask = Task { [weak self] in
+            guard let self else { return }
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(1))
+                self.reloadFromDiskIfNeeded()
+            }
+        }
+    }
+
+    private func reloadFromDiskIfNeeded() {
+        let currentTasksMod = fileModificationDate(at: filePath)
+        let currentStateMod = fileModificationDate(at: stateFilePath)
+
+        if currentTasksMod != lastTasksFileModificationDate {
+            loadTasks()
+            lastTasksFileModificationDate = currentTasksMod
+        }
+
+        if currentStateMod != lastStateFileModificationDate {
+            loadRuntimeState()
+            lastStateFileModificationDate = currentStateMod
+        }
+    }
+
+    private func refreshKnownFileModificationDates() {
+        lastTasksFileModificationDate = fileModificationDate(at: filePath)
+        lastStateFileModificationDate = fileModificationDate(at: stateFilePath)
+    }
+
+    private func fileModificationDate(at path: String) -> Date? {
+        guard let attrs = try? FileManager.default.attributesOfItem(atPath: path) else { return nil }
+        return attrs[.modificationDate] as? Date
     }
 
     func setExecutionPaused(_ paused: Bool) {

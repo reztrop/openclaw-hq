@@ -307,16 +307,31 @@ struct ChatView: View {
                 }
                 .padding(.vertical, 12)
             }
+            .onAppear {
+                scrollToBottom(proxy: proxy, animated: false)
+            }
+            .onChange(of: chatVM.selectedConversationId) { _, _ in
+                scrollToBottom(proxy: proxy, animated: false)
+            }
             .onChange(of: chatVM.messages.count) { _, _ in
-                if let last = chatVM.messages.last {
-                    withAnimation { proxy.scrollTo(last.id, anchor: .bottom) }
-                }
+                scrollToBottom(proxy: proxy, animated: true)
             }
             .onChange(of: chatVM.streamingText) { _, _ in
                 // Keep streaming bubble pinned to bottom as text grows
                 withAnimation(.linear(duration: 0.05)) {
                     proxy.scrollTo(chatVM.streamingBubbleId, anchor: .bottom)
                 }
+            }
+        }
+    }
+
+    private func scrollToBottom(proxy: ScrollViewProxy, animated: Bool) {
+        guard let last = chatVM.messages.last else { return }
+        DispatchQueue.main.async {
+            if animated {
+                withAnimation { proxy.scrollTo(last.id, anchor: .bottom) }
+            } else {
+                proxy.scrollTo(last.id, anchor: .bottom)
             }
         }
     }
