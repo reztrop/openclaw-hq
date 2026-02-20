@@ -104,7 +104,8 @@ enum TaskIssueExtractor {
             "resolved", "remediated", "fixed", "addressed", "completed", "closed"
         ]
         let issueAnchors = ["issue", "issues", "regression", "regressions", "bug", "error", "failure", "problem"]
-        let hasResolution = resolutionSignals.contains { normalized.contains($0) }
+        let hasClosureSignal = normalized.range(of: #"\bclosure\b"#, options: [.regularExpression, .caseInsensitive]) != nil
+        let hasResolution = resolutionSignals.contains { normalized.contains($0) } || hasClosureSignal
         let hasIssueAnchor = issueAnchors.contains { normalized.contains($0) }
 
         let addedRegressionCheck = normalized.range(of: #"\badded\s+regression\s+checks?\b"#, options: [.regularExpression, .caseInsensitive]) != nil
@@ -179,7 +180,14 @@ enum TaskIssueExtractor {
             && (strippedIssuePrefix.contains("already present") || strippedIssuePrefix.contains("already exists") || strippedIssuePrefix.contains("is already present"))
             && hasCommitHash
 
-        return confirmsRegressionEvidenceCommitPresence || isSatisfiedRegressionIssueLine || deltaCommitAlreadyPresent
+        let recordsClosure = normalized.contains("records closure") || normalized.contains("recorded closure")
+        let notBlocked = normalized.contains("not blocked")
+        let closureConfirmation = recordsClosure && notBlocked
+
+        return confirmsRegressionEvidenceCommitPresence
+            || isSatisfiedRegressionIssueLine
+            || deltaCommitAlreadyPresent
+            || closureConfirmation
     }
 
     static func isExternalDependencySignal(_ text: String) -> Bool {

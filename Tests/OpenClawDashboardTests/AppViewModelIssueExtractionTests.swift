@@ -109,6 +109,17 @@ final class AppViewModelIssueExtractionTests: XCTestCase {
         XCTAssertTrue(issues.isEmpty)
     }
 
+    func testExtractIssuesIgnoresExistingArtifactClosureEvidence() {
+        let response = """
+        Task: Fix: Existing artifact now records closure (not blocked):
+        Issue: Existing artifact now records closure (not blocked):
+        [task-start]
+        """
+
+        let issues = TaskIssueExtractor.extractIssues(from: response)
+        XCTAssertTrue(issues.isEmpty)
+    }
+
     func testExtractIssuesIgnoresHostLevelUiAutomationDependencyNarrative() {
         let response = """
         Issue: Matrix remediation branch has new commits, but this specific evidence-matrix task remains blocked on host-level UI automation permissions before compact/default/wide tab verification can be executed and evidenced.
