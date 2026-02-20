@@ -102,6 +102,9 @@ enum TaskIssueExtractor {
         if normalized.range(of: #"^(pass|passed|ok|success)\s*:\s*"#, options: [.regularExpression, .caseInsensitive]) != nil {
             return true
         }
+        if normalized.range(of: #"\((pass|passed|ok|success)\)\s*:\s*"#, options: [.regularExpression, .caseInsensitive]) != nil {
+            return true
+        }
         let passingSignals = [
             "all checks passed",
             "no regressions found"
@@ -118,6 +121,13 @@ enum TaskIssueExtractor {
             "screen recording permission",
             "accessibility permission"
         ]
-        return externalSignals.contains { text.contains($0) }
+
+        if externalSignals.contains(where: { text.contains($0) }) {
+            return true
+        }
+
+        let missingHostPermission = text.contains("host permission") && text.contains("missing")
+        let missingHostPermissions = text.contains("host permissions") && text.contains("missing")
+        return missingHostPermission || missingHostPermissions
     }
 }
