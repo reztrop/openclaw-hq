@@ -280,17 +280,13 @@ class OnboardingViewModel: ObservableObject {
 
     func goNext() {
         guard let current = OnboardingStep(rawValue: step.rawValue + 1) else { return }
-        withAnimation(.easeInOut(duration: 0.35)) {
-            step = current
-        }
+        step = current
     }
 
     func goBack() {
         guard step.rawValue > 0,
               let prev = OnboardingStep(rawValue: step.rawValue - 1) else { return }
-        withAnimation(.easeInOut(duration: 0.35)) {
-            step = prev
-        }
+        step = prev
     }
 
     // MARK: - Agent Editing

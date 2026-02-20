@@ -2,6 +2,7 @@ import SwiftUI
 
 struct ConnectionBanner: View {
     @EnvironmentObject var gatewayService: GatewayService
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     /// Delays showing the connecting spinner so transient states don't flash the UI
     @State private var showConnecting = false
@@ -27,27 +28,37 @@ struct ConnectionBanner: View {
         .onChange(of: gatewayService.connectionState) { _, newState in
             switch newState {
             case .connecting:
-                // Only show the connecting banner after 1.5s — avoids flash during fast reconnects
                 connectingTask?.cancel()
                 connectingTask = Task {
                     try? await Task.sleep(for: .milliseconds(1500))
                     if !Task.isCancelled {
-                        withAnimation(.easeInOut(duration: 0.25)) { showConnecting = true }
+                        if reduceMotion {
+                            showConnecting = true
+                        } else {
+                            withAnimation(.easeInOut(duration: 0.25)) { showConnecting = true }
+                        }
                     }
                 }
             case .connected, .disconnected:
                 connectingTask?.cancel()
                 connectingTask = nil
-                withAnimation(.easeInOut(duration: 0.25)) { showConnecting = false }
+                if reduceMotion {
+                    showConnecting = false
+                } else {
+                    withAnimation(.easeInOut(duration: 0.25)) { showConnecting = false }
+                }
             }
         }
         .onAppear {
-            // Seed initial state without animation
             if case .connecting = gatewayService.connectionState {
                 connectingTask = Task {
                     try? await Task.sleep(for: .milliseconds(1500))
                     if !Task.isCancelled {
-                        withAnimation(.easeInOut(duration: 0.25)) { showConnecting = true }
+                        if reduceMotion {
+                            showConnecting = true
+                        } else {
+                            withAnimation(.easeInOut(duration: 0.25)) { showConnecting = true }
+                        }
                     }
                 }
             }
@@ -67,7 +78,7 @@ struct ConnectionBanner: View {
         .padding(.horizontal, 16)
         .padding(.vertical, 8)
         .background(Theme.darkAccent)
-        .transition(.move(edge: .top).combined(with: .opacity))
+        .transition(reduceMotion ? .opacity : .move(edge: .top).combined(with: .opacity))
     }
 
     private func disconnectedBanner(message: String?) -> some View {
@@ -88,6 +99,6 @@ struct ConnectionBanner: View {
         .padding(.horizontal, 16)
         .padding(.vertical, 8)
         .background(Theme.darkAccent)
-        .transition(.move(edge: .top).combined(with: .opacity))
+        .transition(reduceMotion ? .opacity : .move(edge: .top).combined(with: .opacity))
     }
 }

@@ -104,6 +104,7 @@ struct ComposerTextView: NSViewRepresentable {
 struct ChatView: View {
     @EnvironmentObject var appViewModel: AppViewModel
     @EnvironmentObject var agentsVM: AgentsViewModel
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @StateObject var chatVM: ChatViewModel
 
     @State private var showImporter = false
@@ -143,7 +144,7 @@ struct ChatView: View {
                                     .opacity(0.12)
                             }
                         )
-                        .transition(.move(edge: .trailing).combined(with: .opacity))
+                        .transition(reduceMotion ? .opacity : .move(edge: .trailing).combined(with: .opacity))
                 }
             }
             .onAppear {
@@ -250,8 +251,12 @@ struct ChatView: View {
             Spacer()
 
             Button {
-                withAnimation(.easeInOut(duration: 0.2)) {
+                if reduceMotion {
                     isSidebarCollapsed.toggle()
+                } else {
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        isSidebarCollapsed.toggle()
+                    }
                 }
             } label: {
                 Label(isSidebarCollapsed ? "Show Conversations" : "Hide Conversations",
@@ -331,8 +336,12 @@ struct ChatView: View {
             }
             .onChange(of: chatVM.streamingText) { _, _ in
                 // Keep streaming bubble pinned to bottom as text grows
-                withAnimation(.linear(duration: 0.05)) {
+                if reduceMotion {
                     proxy.scrollTo(chatVM.streamingBubbleId, anchor: .bottom)
+                } else {
+                    withAnimation(.linear(duration: 0.05)) {
+                        proxy.scrollTo(chatVM.streamingBubbleId, anchor: .bottom)
+                    }
                 }
             }
         }
@@ -341,7 +350,7 @@ struct ChatView: View {
     private func scrollToBottom(proxy: ScrollViewProxy, animated: Bool) {
         guard let last = chatVM.messages.last else { return }
         DispatchQueue.main.async {
-            if animated {
+            if animated && !reduceMotion {
                 withAnimation { proxy.scrollTo(last.id, anchor: .bottom) }
             } else {
                 proxy.scrollTo(last.id, anchor: .bottom)
@@ -355,8 +364,12 @@ struct ChatView: View {
             VStack(alignment: .leading, spacing: 0) {
                 // Compact status row — always visible while running
                 Button {
-                    withAnimation(.easeInOut(duration: 0.2)) {
+                    if reduceMotion {
                         chatVM.streamingLogExpanded.toggle()
+                    } else {
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            chatVM.streamingLogExpanded.toggle()
+                        }
                     }
                 } label: {
                     HStack(spacing: 8) {
@@ -407,7 +420,7 @@ struct ChatView: View {
                     .background(Theme.darkSurface.opacity(0.6))
                     .cornerRadius(0)
                     .cornerRadius(10, corners: [.bottomLeft, .bottomRight])
-                    .transition(.opacity.combined(with: .move(edge: .top)))
+                    .transition(reduceMotion ? .opacity : .opacity.combined(with: .move(edge: .top)))
                 }
             }
             .frame(maxWidth: 700, alignment: .leading)
@@ -513,7 +526,7 @@ struct ChatView: View {
                         Image(systemName: "stop.fill")
                     }
                     .buttonStyle(HQButtonStyle(variant: .danger))
-                    .transition(.scale.combined(with: .opacity))
+                    .transition(reduceMotion ? .opacity : .scale.combined(with: .opacity))
                 } else {
                     // Send button
                     Button {
@@ -526,7 +539,7 @@ struct ChatView: View {
                         chatVM.draftMessage.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
                         && chatVM.pendingAttachments.isEmpty
                     )
-                    .transition(.scale.combined(with: .opacity))
+                    .transition(reduceMotion ? .opacity : .scale.combined(with: .opacity))
                 }
             }
 
@@ -865,6 +878,7 @@ struct RoundedCornerShape: Shape {
 
 /// Three animated dots shown in the streaming bubble before the first token arrives.
 struct ThinkingDotsView: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var phase = 0
 
     private let timer = Timer.publish(every: 0.45, on: .main, in: .common).autoconnect()
@@ -873,12 +887,13 @@ struct ThinkingDotsView: View {
         HStack(spacing: 5) {
             ForEach(0..<3, id: \.self) { i in
                 Circle()
-                    .fill(Color.white.opacity(phase == i ? 0.9 : 0.3))
+                    .fill(Color.white.opacity((reduceMotion ? 1 : phase) == i ? 0.9 : 0.3))
                     .frame(width: 7, height: 7)
-                    .animation(.easeInOut(duration: 0.3), value: phase)
+                    .animation(reduceMotion ? nil : .easeInOut(duration: 0.3), value: phase)
             }
         }
         .onReceive(timer) { _ in
+            guard !reduceMotion else { return }
             phase = (phase + 1) % 3
         }
     }

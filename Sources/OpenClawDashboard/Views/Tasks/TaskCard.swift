@@ -5,6 +5,7 @@ struct TaskCard: View {
     let onView: (() -> Void)?
     let showPausedOverlay: Bool
     let showVerifiedOverlay: Bool
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var isHovered = false
 
     var body: some View {
@@ -95,8 +96,8 @@ struct TaskCard: View {
                         )
                 )
         )
-        .scaleEffect(isHovered ? 1.02 : 1.0)
-        .animation(.easeOut(duration: 0.15), value: isHovered)
+        .scaleEffect(reduceMotion ? 1 : (isHovered ? 1.02 : 1.0))
+        .animation(reduceMotion ? nil : .easeOut(duration: 0.15), value: isHovered)
         .onHover { hovering in
             isHovered = hovering
         }

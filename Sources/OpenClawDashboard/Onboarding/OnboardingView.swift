@@ -3,6 +3,7 @@ import SwiftUI
 struct OnboardingView: View {
     @StateObject private var vm = OnboardingViewModel()
     @EnvironmentObject var appViewModel: AppViewModel
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         ZStack {
@@ -36,7 +37,7 @@ struct OnboardingView: View {
                         }
                     }
                 }
-                .transition(.asymmetric(
+                .transition(reduceMotion ? .opacity : .asymmetric(
                     insertion: .move(edge: .trailing).combined(with: .opacity),
                     removal: .move(edge: .leading).combined(with: .opacity)
                 ))
@@ -54,7 +55,7 @@ struct OnboardingView: View {
                 Circle()
                     .fill(vm.step.rawValue >= i ? Theme.jarvisBlue : Theme.darkBorder)
                     .frame(width: 8, height: 8)
-                    .animation(.easeInOut(duration: 0.2), value: vm.step)
+                    .animation(reduceMotion ? nil : .easeInOut(duration: 0.2), value: vm.step)
             }
         }
     }
@@ -632,6 +633,7 @@ struct AvatarSetupStep: View {
 // MARK: - Done Step
 struct DoneStep: View {
     @ObservedObject var vm: OnboardingViewModel
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let onComplete: () -> Void
 
     var body: some View {
@@ -641,7 +643,7 @@ struct DoneStep: View {
             Image(systemName: "checkmark.circle.fill")
                 .font(.system(size: 72))
                 .foregroundColor(.green)
-                .symbolEffect(.bounce, value: true)
+                .symbolEffect(.bounce, value: !reduceMotion)
 
             VStack(spacing: 12) {
                 Text("You're all set!")

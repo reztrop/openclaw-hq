@@ -5,6 +5,7 @@ struct AgentAvatar: View {
     let isActive: Bool
     var size: CGFloat = 200
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var showingActive = false
 
     var body: some View {
@@ -31,8 +32,12 @@ struct AgentAvatar: View {
             radius: isActive ? 12 : 0
         )
         .onChange(of: isActive) { _, newValue in
-            withAnimation(.easeInOut(duration: 0.6)) {
+            if reduceMotion {
                 showingActive = newValue
+            } else {
+                withAnimation(.easeInOut(duration: 0.6)) {
+                    showingActive = newValue
+                }
             }
         }
         .onAppear {

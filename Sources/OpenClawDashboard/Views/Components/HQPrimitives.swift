@@ -146,6 +146,8 @@ struct HQButton<Label: View>: View {
 }
 
 struct HQButtonStyle: ButtonStyle {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     enum Variant {
         case primary
         case secondary
@@ -169,8 +171,8 @@ struct HQButtonStyle: ButtonStyle {
                             .stroke(colors.border, lineWidth: 1)
                     )
             )
-            .scaleEffect(configuration.isPressed ? 0.98 : 1)
-            .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
+            .scaleEffect(reduceMotion ? 1 : (configuration.isPressed ? 0.98 : 1))
+            .animation(reduceMotion ? nil : .easeOut(duration: 0.12), value: configuration.isPressed)
     }
 
     private var palette: (foreground: Color, background: Color, border: Color) {

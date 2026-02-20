@@ -36,6 +36,8 @@ private func providerIcon(for id: String) -> String {
 /// Reads auth.json to discover installed providers; lets the user toggle
 /// which are active so the Chat model picker only shows relevant models.
 struct ProviderSettingsView: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     /// Passed directly from ContentView — avoids environment object lookup issues
     /// inside safeAreaInset / sidebar list containers on macOS.
     @ObservedObject var settingsService: SettingsService
@@ -50,8 +52,12 @@ struct ProviderSettingsView: View {
 
             // Collapsible header row
             Button {
-                withAnimation(.easeInOut(duration: 0.18)) {
+                if reduceMotion {
                     isExpanded.toggle()
+                } else {
+                    withAnimation(.easeInOut(duration: 0.18)) {
+                        isExpanded.toggle()
+                    }
                 }
             } label: {
                 HStack(spacing: 6) {
@@ -124,7 +130,7 @@ struct ProviderSettingsView: View {
         )
         .contentShape(Rectangle())
         .onTapGesture { toggleProvider(pid) }
-        .animation(.easeOut(duration: 0.15), value: enabled)
+        .animation(reduceMotion ? nil : .easeOut(duration: 0.15), value: enabled)
     }
 
     // MARK: - Helpers

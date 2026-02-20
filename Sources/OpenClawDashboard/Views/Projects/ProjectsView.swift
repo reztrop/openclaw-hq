@@ -4,6 +4,7 @@ import AppKit
 struct ProjectsView: View {
     @EnvironmentObject var appViewModel: AppViewModel
     @EnvironmentObject var projectsVM: ProjectsViewModel
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @State private var isSidebarCollapsed = false
 
@@ -25,7 +26,7 @@ struct ProjectsView: View {
                                     .opacity(0.12)
                             }
                         )
-                        .transition(.move(edge: .trailing).combined(with: .opacity))
+                        .transition(reduceMotion ? .opacity : .move(edge: .trailing).combined(with: .opacity))
                 }
             }
             .onAppear {
@@ -157,8 +158,12 @@ struct ProjectsView: View {
             Spacer()
 
             Button {
-                withAnimation(.easeInOut(duration: 0.2)) {
+                if reduceMotion {
                     isSidebarCollapsed.toggle()
+                } else {
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        isSidebarCollapsed.toggle()
+                    }
                 }
             } label: {
                 Label(isSidebarCollapsed ? "Show Projects" : "Hide Projects",

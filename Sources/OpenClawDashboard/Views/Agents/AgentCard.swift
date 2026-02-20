@@ -3,6 +3,7 @@ import SwiftUI
 struct AgentCard: View {
     let agent: Agent
     var onEdit: (() -> Void)? = nil
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var isHovered = false
 
     var body: some View {
@@ -88,7 +89,7 @@ struct AgentCard: View {
             color: isHovered ? agent.brandColor.opacity(0.15) : .clear,
             radius: 16
         )
-        .animation(.easeOut(duration: 0.15), value: isHovered)
+        .animation(reduceMotion ? nil : .easeOut(duration: 0.15), value: isHovered)
         .onHover { hovering in
             isHovered = hovering
         }

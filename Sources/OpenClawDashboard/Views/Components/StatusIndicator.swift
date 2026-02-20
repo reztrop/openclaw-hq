@@ -4,12 +4,13 @@ struct StatusIndicator: View {
     let status: AgentStatus
     var size: CGFloat = 12
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var isPulsing = false
 
     var body: some View {
         ZStack {
             // Pulse ring
-            if status.shouldPulse {
+            if status.shouldPulse && !reduceMotion {
                 Circle()
                     .fill(status.color.opacity(0.3))
                     .frame(width: size * 2, height: size * 2)
