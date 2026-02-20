@@ -9,7 +9,11 @@ final class VisualScopeLockGuardrailTests: XCTestCase {
             "runTaskOrchestrationTick()",
             "routeIssuesToJarvisAndCreateFixTasks",
             "startTaskOrchestrationLoop()",
-            "handleTaskExecutionEvent(_ event:"
+            "handleTaskExecutionEvent(_ event:",
+            "recurringIssueMarkers(in evidence:",
+            "writeInterventionReport(dominantIssue:",
+            "notifyJarvisOfIntervention(reportPath:",
+            "interventionCooldown"
         ]
 
         for symbol in forbiddenSymbols {
@@ -37,6 +41,24 @@ final class VisualScopeLockGuardrailTests: XCTestCase {
                 "ProjectsViewModel reintroduced non-visual execution logic: \(symbol)"
             )
         }
+    }
+
+    func testRecurringIssueInterventionLivesInServiceLayer() throws {
+        let appSource = try loadSource("Sources/OpenClawDashboard/ViewModels/AppViewModel.swift")
+        XCTAssertTrue(
+            appSource.contains("taskInterventionService.evaluateRecurringIssueIntervention(tasks: tasks)"),
+            "AppViewModel should delegate recurring issue intervention to service layer"
+        )
+
+        let serviceSource = try loadSource("Sources/OpenClawDashboard/Services/TaskInterventionService.swift")
+        XCTAssertTrue(
+            serviceSource.contains("final class TaskInterventionService"),
+            "TaskInterventionService missing"
+        )
+        XCTAssertTrue(
+            serviceSource.contains("notifyJarvisOfIntervention(reportPath:"),
+            "Jarvis intervention handling should live in TaskInterventionService"
+        )
     }
 
     private func loadSource(_ relativePath: String) throws -> String {
