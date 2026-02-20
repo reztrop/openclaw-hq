@@ -319,22 +319,28 @@ class AppViewModel: ObservableObject {
     }
 
     private func taskOutcome(for task: TaskItem, from response: String) -> TaskOutcome {
-        let lower = response.lowercased()
-        if lower.contains("[task-complete]") || lower.contains("status: complete") {
-            return .complete
-        }
-        if lower.contains("[task-blocked]") || lower.contains("status: blocked") {
+        let markers = Set(
+            response
+                .components(separatedBy: .newlines)
+                .map { $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() }
+                .filter { $0 == "[task-complete]" || $0 == "[task-blocked]" || $0 == "[task-continue]" }
+        )
+
+        if markers.contains("[task-blocked]") {
             return .blocked
         }
-        if lower.contains("[task-continue]") || lower.contains("status: continue") {
+        if markers.contains("[task-complete]") {
+            return .complete
+        }
+        if markers.contains("[task-continue]") {
             return .continueWork
         }
+
+        let lower = response.lowercased()
         if task.isVerificationTask && hasVerificationScopeGap(lower) {
             return .blocked
         }
-        if lower.contains("completed") || lower.contains("done") {
-            return .complete
-        }
+
         return .continueWork
     }
 
