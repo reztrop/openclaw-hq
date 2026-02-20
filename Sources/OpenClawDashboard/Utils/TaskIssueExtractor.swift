@@ -89,16 +89,26 @@ enum TaskIssueExtractor {
     }
 
     static func isIssueResolvedSignal(_ text: String) -> Bool {
+        let normalized = text
+            .replacingOccurrences(of: "-", with: " ")
+            .replacingOccurrences(of: "_", with: " ")
+            .replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+
+        if normalized.contains("issue classification") {
+            return false
+        }
+
         let resolutionSignals = [
             "resolved", "remediated", "fixed", "addressed", "completed", "closed"
         ]
         let issueAnchors = ["issue", "issues", "regression", "regressions", "bug", "error", "failure", "problem"]
-        let hasResolution = resolutionSignals.contains { text.contains($0) }
-        let hasIssueAnchor = issueAnchors.contains { text.contains($0) }
+        let hasResolution = resolutionSignals.contains { normalized.contains($0) }
+        let hasIssueAnchor = issueAnchors.contains { normalized.contains($0) }
 
-        let addedRegressionCheck = text.range(of: #"\badded\s+regression\s+checks?\b"#, options: [.regularExpression, .caseInsensitive]) != nil
-            || text.range(of: #"\badded\s+regression\s+tests?\b"#, options: [.regularExpression, .caseInsensitive]) != nil
-        let hasFailureSignal = text.range(of: #"\b(fail|failed|failing|error|problem)\b"#, options: [.regularExpression, .caseInsensitive]) != nil
+        let addedRegressionCheck = normalized.range(of: #"\badded\s+regression\s+checks?\b"#, options: [.regularExpression, .caseInsensitive]) != nil
+            || normalized.range(of: #"\badded\s+regression\s+tests?\b"#, options: [.regularExpression, .caseInsensitive]) != nil
+        let hasFailureSignal = normalized.range(of: #"\b(fail|failed|failing|error|problem)\b"#, options: [.regularExpression, .caseInsensitive]) != nil
         let addedRegressionCheckSignal = addedRegressionCheck && !hasFailureSignal
 
         return (hasResolution && hasIssueAnchor) || addedRegressionCheckSignal

@@ -189,4 +189,15 @@ final class TaskIssueExtractorTests: XCTestCase {
 
         XCTAssertTrue(issues.isEmpty)
     }
+
+    func testExtractIssuesKeepsResolvedIssueClassificationBugLine() {
+        let response = """
+        Issue: Resolved issue classification bug
+        """
+
+        let issues = TaskIssueExtractor.extractIssues(from: response)
+
+        XCTAssertEqual(issues.count, 1)
+        XCTAssertEqual(issues.first, "Issue: Resolved issue classification bug")
+    }
 }
