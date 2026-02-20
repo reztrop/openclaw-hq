@@ -110,6 +110,7 @@ enum TaskIssueExtractor {
         let addedRegressionCheck = normalized.range(of: #"\badded\s+regression\s+checks?\b"#, options: [.regularExpression, .caseInsensitive]) != nil
             || normalized.range(of: #"\badded\s+regression\s+tests?\b"#, options: [.regularExpression, .caseInsensitive]) != nil
             || normalized.range(of: #"\badded\s+regression\s+coverage\b"#, options: [.regularExpression, .caseInsensitive]) != nil
+            || normalized.range(of: #"\badded\s+regression\s+hardening\s+checks?\b"#, options: [.regularExpression, .caseInsensitive]) != nil
         let addedModeRegressionCoverage = text.contains("--mode")
             && normalized.range(of: #"\badded\b.*\b(drift|regressions?)\b"#, options: [.regularExpression, .caseInsensitive]) != nil
         let hasFailureSignal = normalized.range(of: #"\b(fail|failed|failing|error|problem)\b"#, options: [.regularExpression, .caseInsensitive]) != nil
@@ -149,10 +150,16 @@ enum TaskIssueExtractor {
 
         let hasCheckPrefix = normalized.hasPrefix("checked ") || normalized.hasPrefix("check: ")
         let hasConfirmation = normalized.contains("confirmed")
-        let confirmsExistingPath = normalized.contains("already exists") || normalized.contains("exists in")
+        let confirmsExistingPath = normalized.contains("already exists")
+            || normalized.contains("exists in")
+            || normalized.contains("is present in")
         let confirmsServiceBoundary = normalized.contains("remains in") || normalized.contains("delegation path")
 
         if hasCheckPrefix && hasConfirmation && (confirmsExistingPath || confirmsServiceBoundary) {
+            return true
+        }
+
+        if hasConfirmation && confirmsExistingPath {
             return true
         }
 

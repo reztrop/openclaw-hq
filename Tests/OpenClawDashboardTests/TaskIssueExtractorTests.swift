@@ -87,6 +87,16 @@ final class TaskIssueExtractorTests: XCTestCase {
         XCTAssertTrue(issues.isEmpty)
     }
 
+    func testExtractIssuesIgnoresAddedRegressionHardeningCheckLine() {
+        let response = """
+        Issue: Added regression-hardening check to validator:
+        """
+
+        let issues = TaskIssueExtractor.extractIssues(from: response)
+
+        XCTAssertTrue(issues.isEmpty)
+    }
+
     func testExtractIssuesIgnoresAddedRegressionTestAboveLine() {
         let response = """
         Issue: Added regression test above
@@ -193,6 +203,16 @@ final class TaskIssueExtractorTests: XCTestCase {
     func testExtractIssuesIgnoresConfirmedSingleActiveTaskRegressionEvidenceCommitPresence() {
         let response = """
         Issue: Confirmed single-active-task regression evidence commit is present:
+        """
+
+        let issues = TaskIssueExtractor.extractIssues(from: response)
+
+        XCTAssertTrue(issues.isEmpty)
+    }
+
+    func testExtractIssuesIgnoresConfirmedFixPresenceLine() {
+        let response = """
+        Issue: Confirmed issue `4084772` (Task 1300) fix is present in `TaskIssueExtractor`.
         """
 
         let issues = TaskIssueExtractor.extractIssues(from: response)
