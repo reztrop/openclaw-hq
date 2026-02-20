@@ -208,15 +208,37 @@ struct ContentView: View {
     }
 
     private func updateWindowLayoutFlags(for width: CGFloat) {
-        let compact = width < 1300
-        if appViewModel.isCompactWindow != compact {
-            appViewModel.isCompactWindow = compact
+        let state = ContentLayoutPolicy.state(
+            for: width,
+            selectedTab: appViewModel.selectedTab,
+            currentSidebarCollapsed: appViewModel.isMainSidebarCollapsed
+        )
+
+        if appViewModel.isCompactWindow != state.isCompactWindow {
+            appViewModel.isCompactWindow = state.isCompactWindow
         }
-        if !compact {
-            appViewModel.isMainSidebarCollapsed = false
-        } else if appViewModel.selectedTab != .chat {
-            appViewModel.isMainSidebarCollapsed = false
+        if appViewModel.isMainSidebarCollapsed != state.isMainSidebarCollapsed {
+            appViewModel.isMainSidebarCollapsed = state.isMainSidebarCollapsed
         }
+    }
+}
+
+struct WindowLayoutState: Equatable {
+    let isCompactWindow: Bool
+    let isMainSidebarCollapsed: Bool
+}
+
+enum ContentLayoutPolicy {
+    static let compactThreshold: CGFloat = 1300
+
+    static func state(for width: CGFloat, selectedTab: AppTab, currentSidebarCollapsed: Bool) -> WindowLayoutState {
+        let isCompactWindow = width < compactThreshold
+        let keepSidebarCollapsed = isCompactWindow && selectedTab == .chat
+
+        return WindowLayoutState(
+            isCompactWindow: isCompactWindow,
+            isMainSidebarCollapsed: keepSidebarCollapsed ? currentSidebarCollapsed : false
+        )
     }
 }
 
