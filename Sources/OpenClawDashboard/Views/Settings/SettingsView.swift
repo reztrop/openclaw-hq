@@ -37,6 +37,12 @@ struct SettingsView: View {
     @EnvironmentObject var gatewayService: GatewayService
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
+    private let inModal: Bool
+
+    init(inModal: Bool = false) {
+        self.inModal = inModal
+    }
+
     // Gateway fields
     @State private var host: String = ""
     @State private var port: String = ""
@@ -61,7 +67,7 @@ struct SettingsView: View {
     }
 
     var body: some View {
-        ScrollView {
+        let content = ScrollView {
             VStack(alignment: .leading, spacing: 24) {
 
                 // MARK: API Connections
@@ -178,11 +184,20 @@ struct SettingsView: View {
             }
             .padding(24)
         }
-        .background(Theme.darkBackground)
         .onAppear {
             loadFromSettings()
             detectedProviders = readAuthProviders()
             seedEnabledProvidersIfNeeded()
+        }
+
+        if inModal {
+            HQModalChrome(padding: 24) {
+                content
+                    .frame(maxWidth: 960, maxHeight: 720)
+            }
+        } else {
+            content
+                .background(Theme.darkBackground)
         }
     }
 

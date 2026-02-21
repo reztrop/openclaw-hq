@@ -83,7 +83,7 @@ struct OpenClawDashboardApp: App {
         }
 
         Settings {
-            SettingsView()
+            SettingsView(inModal: true)
                 .environmentObject(appViewModel.settingsService)
                 .environmentObject(appViewModel.gatewayService)
                 .preferredColorScheme(.dark)
