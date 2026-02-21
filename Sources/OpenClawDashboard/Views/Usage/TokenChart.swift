@@ -22,9 +22,9 @@ struct TokenChart: View {
         .chartYAxis {
             AxisMarks { _ in
                 AxisGridLine()
-                    .foregroundStyle(Theme.darkBorder.opacity(0.5))
+                    .foregroundStyle(Theme.darkBorder.opacity(0.7))
                 AxisValueLabel()
-                    .foregroundStyle(Theme.textMuted)
+                    .foregroundStyle(Theme.textSecondary)
             }
         }
     }
