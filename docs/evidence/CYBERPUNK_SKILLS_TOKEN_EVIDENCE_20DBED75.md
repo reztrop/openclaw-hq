@@ -13,6 +13,7 @@
 ## Code References
 - `Sources/OpenClawDashboard/Views/Skills/SkillsView.swift`
 - `Sources/OpenClawDashboard/Views/Components/HQPrimitives.swift`
+- Commit: `8c7474a` (Skills badges + HQPanel/HQButton alignment)
 
 ## Required State Coverage Checklist
 - [ ] Default state
