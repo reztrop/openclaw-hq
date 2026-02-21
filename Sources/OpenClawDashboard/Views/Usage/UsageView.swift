@@ -106,7 +106,7 @@ struct UsageView: View {
                 .foregroundColor(.white)
             Text(title)
                 .font(.caption)
-                .foregroundColor(Theme.textMuted)
+                .foregroundColor(Theme.textSecondary)
         }
         .frame(maxWidth: .infinity)
         .padding(16)
@@ -140,9 +140,9 @@ struct UsageView: View {
                 .chartYAxis {
                     AxisMarks { _ in
                         AxisGridLine()
-                            .foregroundStyle(Theme.darkBorder.opacity(0.5))
+                            .foregroundStyle(Theme.darkBorder.opacity(0.7))
                         AxisValueLabel()
-                            .foregroundStyle(Theme.textMuted)
+                            .foregroundStyle(Theme.textSecondary)
                     }
                 }
             } else {
@@ -214,17 +214,17 @@ struct UsageView: View {
                 .chartXAxis {
                     AxisMarks { _ in
                         AxisGridLine()
-                            .foregroundStyle(Theme.darkBorder.opacity(0.3))
+                            .foregroundStyle(Theme.darkBorder.opacity(0.5))
                         AxisValueLabel()
-                            .foregroundStyle(Theme.textMuted)
+                            .foregroundStyle(Theme.textSecondary)
                     }
                 }
                 .chartYAxis {
                     AxisMarks { _ in
                         AxisGridLine()
-                            .foregroundStyle(Theme.darkBorder.opacity(0.3))
+                            .foregroundStyle(Theme.darkBorder.opacity(0.5))
                         AxisValueLabel()
-                            .foregroundStyle(Theme.textMuted)
+                            .foregroundStyle(Theme.textSecondary)
                     }
                 }
             } else {
@@ -260,7 +260,7 @@ struct UsageView: View {
     private func emptyChart(message: String) -> some View {
         Text(message)
             .font(.subheadline)
-            .foregroundColor(Theme.textMuted)
+            .foregroundColor(Theme.textSecondary)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
