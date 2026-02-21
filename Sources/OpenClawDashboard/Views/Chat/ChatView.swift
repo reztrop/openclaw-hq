@@ -316,6 +316,10 @@ struct ChatView: View {
                             .id(message.id)
                     }
 
+                    if chatVM.messages.isEmpty && !chatVM.isSending {
+                        emptyState
+                    }
+
                     // Live streaming bubble — shows text as tokens arrive.
                     // Visible whenever isSending is true, even before text accumulates.
                     if chatVM.isSending {
@@ -347,6 +351,26 @@ struct ChatView: View {
         }
     }
 
+    @ViewBuilder
+    private var emptyState: some View {
+        HStack {
+            HQPanel(cornerRadius: 12, surface: Theme.darkSurface.opacity(0.6), border: Theme.darkBorder.opacity(0.6), lineWidth: 1) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("No messages yet")
+                        .font(.system(.headline, design: .monospaced))
+                        .foregroundColor(Theme.textPrimary)
+                    Text("Start a new message or attach files to kick things off.")
+                        .font(.system(.caption, design: .monospaced))
+                        .foregroundColor(Theme.textMuted)
+                }
+                .padding(12)
+                .frame(maxWidth: 520, alignment: .leading)
+            }
+            Spacer()
+        }
+        .padding(.horizontal, 16)
+    }
+
     private func scrollToBottom(proxy: ScrollViewProxy, animated: Bool) {
         guard let last = chatVM.messages.last else { return }
         DispatchQueue.main.async {
@@ -361,74 +385,71 @@ struct ChatView: View {
     @ViewBuilder
     private var streamingBubble: some View {
         HStack {
-            VStack(alignment: .leading, spacing: 0) {
-                // Compact status row — always visible while running
-                Button {
-                    if reduceMotion {
-                        chatVM.streamingLogExpanded.toggle()
-                    } else {
-                        withAnimation(.easeInOut(duration: 0.2)) {
+            HQPanel(cornerRadius: 10, surface: Theme.darkSurface.opacity(0.85), border: Theme.darkBorder.opacity(0.5), lineWidth: 1) {
+                VStack(alignment: .leading, spacing: 0) {
+                    // Compact status row — always visible while running
+                    Button {
+                        if reduceMotion {
                             chatVM.streamingLogExpanded.toggle()
-                        }
-                    }
-                } label: {
-                    HStack(spacing: 8) {
-                        // Pulsing dot
-                        ThinkingDotsView()
-                            .frame(width: 28, height: 14)
-
-                        if chatVM.streamingStatusLine.isEmpty {
-                            Text("status> \(selectedAgentName().lowercased()) is working…")
-                                .font(.system(.caption, design: .monospaced))
-                                .foregroundColor(Theme.textMuted)
                         } else {
-                            Text("status> \(chatVM.streamingStatusLine)")
+                            withAnimation(.easeInOut(duration: 0.2)) {
+                                chatVM.streamingLogExpanded.toggle()
+                            }
+                        }
+                    } label: {
+                        HStack(spacing: 8) {
+                            // Pulsing dot
+                            ThinkingDotsView()
+                                .frame(width: 28, height: 14)
+
+                            if chatVM.streamingStatusLine.isEmpty {
+                                Text("status> \(selectedAgentName().lowercased()) is working…")
+                                    .font(.system(.caption, design: .monospaced))
+                                    .foregroundColor(Theme.textMuted)
+                            } else {
+                                Text("status> \(chatVM.streamingStatusLine)")
+                                    .font(.system(.caption, design: .monospaced))
+                                    .foregroundColor(Theme.textSecondary)
+                                    .lineLimit(1)
+                                    .truncationMode(.tail)
+                                    .frame(maxWidth: 560, alignment: .leading)
+                            }
+
+                            Spacer()
+
+                            // Expand/collapse chevron — only show if there's log content
+                            if let log = chatVM.streamingText, !log.isEmpty {
+                                Image(systemName: chatVM.streamingLogExpanded ? "chevron.up" : "chevron.down")
+                                    .font(.system(size: 9, weight: .semibold))
+                                    .foregroundColor(Theme.textMuted)
+                            }
+                        }
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 8)
+                        .background(Theme.darkSurface.opacity(0.9))
+                        .cornerRadius(10, corners: chatVM.streamingLogExpanded ? [.topLeft, .topRight] : [.topLeft, .topRight, .bottomLeft, .bottomRight])
+                    }
+                    .buttonStyle(.plain)
+
+                    // Expanded log — full raw stream, fixed height with scroll
+                    if chatVM.streamingLogExpanded, let log = chatVM.streamingText, !log.isEmpty {
+                        ScrollView(.vertical) {
+                            Text(log)
                                 .font(.system(.caption, design: .monospaced))
-                                .foregroundColor(Theme.textSecondary)
-                                .lineLimit(1)
-                                .truncationMode(.tail)
-                                .frame(maxWidth: 560, alignment: .leading)
+                                .foregroundColor(Theme.textMuted.opacity(0.85))
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(10)
+                                .textSelection(.enabled)
                         }
-
-                        Spacer()
-
-                        // Expand/collapse chevron — only show if there's log content
-                        if let log = chatVM.streamingText, !log.isEmpty {
-                            Image(systemName: chatVM.streamingLogExpanded ? "chevron.up" : "chevron.down")
-                                .font(.system(size: 9, weight: .semibold))
-                                .foregroundColor(Theme.textMuted)
-                        }
+                        .frame(maxHeight: 220)
+                        .background(Theme.darkSurface.opacity(0.6))
+                        .cornerRadius(0)
+                        .cornerRadius(10, corners: [.bottomLeft, .bottomRight])
+                        .transition(reduceMotion ? .opacity : .opacity.combined(with: .move(edge: .top)))
                     }
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 8)
-                    .background(Theme.darkSurface)
-                    .cornerRadius(10, corners: chatVM.streamingLogExpanded ? [.topLeft, .topRight] : [.topLeft, .topRight, .bottomLeft, .bottomRight])
                 }
-                .buttonStyle(.plain)
-
-                // Expanded log — full raw stream, fixed height with scroll
-                if chatVM.streamingLogExpanded, let log = chatVM.streamingText, !log.isEmpty {
-                    ScrollView(.vertical) {
-                        Text(log)
-                            .font(.system(.caption, design: .monospaced))
-                            .foregroundColor(Theme.textMuted.opacity(0.85))
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(10)
-                            .textSelection(.enabled)
-                    }
-                    .frame(maxHeight: 220)
-                    .background(Theme.darkSurface.opacity(0.6))
-                    .cornerRadius(0)
-                    .cornerRadius(10, corners: [.bottomLeft, .bottomRight])
-                    .transition(reduceMotion ? .opacity : .opacity.combined(with: .move(edge: .top)))
-                }
+                .frame(maxWidth: 700, alignment: .leading)
             }
-            .frame(maxWidth: 700, alignment: .leading)
-            .clipShape(RoundedRectangle(cornerRadius: 10))
-            .overlay(
-                RoundedRectangle(cornerRadius: 10)
-                    .stroke(Theme.darkBorder.opacity(0.3), lineWidth: 1)
-            )
 
             Spacer()
         }
@@ -436,22 +457,23 @@ struct ChatView: View {
     }
 
     private func messageBubble(_ message: ChatMessage) -> some View {
-        HStack {
+        let isError = !message.isUser && message.text.trimmingCharacters(in: .whitespacesAndNewlines).lowercased().hasPrefix("error:")
+        let badgeTone: HQTone = message.isUser ? .accent : (isError ? .danger : .success)
+        let borderColor = message.isUser
+            ? Theme.jarvisBlue.opacity(0.5)
+            : (isError ? Theme.statusOffline.opacity(0.8) : Theme.terminalGreen.opacity(0.3))
+        let surfaceColor = message.isUser
+            ? Theme.jarvisBlue.opacity(0.18)
+            : (isError ? Theme.statusOffline.opacity(0.12) : Theme.darkSurface.opacity(0.92))
+        let textColor = message.isUser
+            ? Theme.textPrimary
+            : (isError ? Theme.statusOffline : Theme.terminalGreen)
+
+        return HStack {
             if message.isUser { Spacer() }
             VStack(alignment: .leading, spacing: 6) {
                 HStack(spacing: 8) {
-                    Text(message.isUser ? "USER" : selectedAgentName().uppercased())
-                        .font(.system(.caption2, design: .monospaced))
-                        .fontWeight(.semibold)
-                        .foregroundColor(message.isUser ? Theme.jarvisBlue : Theme.terminalGreen)
-                        .padding(.horizontal, 7)
-                        .padding(.vertical, 3)
-                        .background((message.isUser ? Theme.jarvisBlue : Theme.terminalGreen).opacity(0.12))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 5)
-                                .stroke((message.isUser ? Theme.jarvisBlue : Theme.terminalGreen).opacity(0.45), lineWidth: 1)
-                        )
-                        .cornerRadius(5)
+                    HQBadge(text: message.isUser ? "USER" : selectedAgentName().uppercased(), tone: badgeTone)
 
                     if !message.isUser {
                         Text(selectedAgentRole())
@@ -460,17 +482,14 @@ struct ChatView: View {
                     }
                 }
 
-                Text(message.text)
-                    .font(.system(.body, design: .monospaced))
-                    .foregroundColor(message.isUser ? Theme.textPrimary : Theme.terminalGreen)
-                    .padding(12)
-                    .background(message.isUser ? Theme.jarvisBlue.opacity(0.22) : Theme.darkSurface.opacity(0.92))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 12)
-                            .stroke(message.isUser ? Theme.jarvisBlue.opacity(0.45) : Theme.terminalGreen.opacity(0.25), lineWidth: 1)
-                    )
-                    .cornerRadius(12)
-                    .textSelection(.enabled)
+                HQPanel(cornerRadius: 12, surface: surfaceColor, border: borderColor, lineWidth: 1) {
+                    Text(message.text)
+                        .font(.system(.body, design: .monospaced))
+                        .foregroundColor(textColor)
+                        .padding(12)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .textSelection(.enabled)
+                }
             }
             .frame(maxWidth: 700, alignment: .leading)
             if !message.isUser { Spacer() }
@@ -486,20 +505,20 @@ struct ChatView: View {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 8) {
                         ForEach(chatVM.pendingAttachments) { file in
-                            HStack(spacing: 6) {
-                                Image(systemName: "doc")
-                                Text(file.fileName).lineLimit(1)
-                                Button {
-                                    chatVM.removeAttachment(file)
-                                } label: {
-                                    Image(systemName: "xmark.circle.fill")
+                            HQPanel(cornerRadius: 8, surface: Theme.darkSurface.opacity(0.85), border: Theme.darkBorder.opacity(0.7), lineWidth: 1) {
+                                HStack(spacing: 6) {
+                                    Image(systemName: "doc")
+                                    Text(file.fileName).lineLimit(1)
+                                    Button {
+                                        chatVM.removeAttachment(file)
+                                    } label: {
+                                        Image(systemName: "xmark.circle.fill")
+                                    }
+                                    .buttonStyle(.plain)
                                 }
-                                .buttonStyle(.plain)
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 6)
                             }
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 6)
-                            .background(Theme.darkSurface)
-                            .cornerRadius(8)
                         }
                     }
                 }
@@ -507,16 +526,16 @@ struct ChatView: View {
 
             HStack(alignment: .bottom, spacing: 8) {
                 // Scrollable multi-line composer with Enter-to-send / Shift+Enter for newline
-                ComposerTextView(
-                    text: $chatVM.draftMessage,
-                    placeholder: "Message \(selectedAgentName())…  (Shift+Enter for new line)",
-                    onSend: { Task { await sendCurrentMessageWithSelectedTags() } },
-                    isSending: chatVM.isSending
-                )
-                .frame(minHeight: 36, maxHeight: 120)
-                .padding(6)
-                .background(Theme.darkSurface)
-                .cornerRadius(8)
+                HQPanel(cornerRadius: 8, surface: Theme.darkSurface.opacity(0.9), border: Theme.darkBorder.opacity(0.8), lineWidth: 1) {
+                    ComposerTextView(
+                        text: $chatVM.draftMessage,
+                        placeholder: "Message \(selectedAgentName())…  (Shift+Enter for new line)",
+                        onSend: { Task { await sendCurrentMessageWithSelectedTags() } },
+                        isSending: chatVM.isSending
+                    )
+                    .frame(minHeight: 36, maxHeight: 120)
+                    .padding(6)
+                }
 
                 if chatVM.isSending {
                     // Stop button — cancels the in-flight run
