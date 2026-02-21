@@ -48,8 +48,17 @@ struct SettingsView: View {
     @State private var isTesting: Bool = false
     @State private var savedConfirmation: Bool = false
 
+    @FocusState private var focusedField: SettingsField?
+    @State private var hoveredField: SettingsField?
+
     // Provider detection
     @State private var detectedProviders: [String] = []
+
+    private enum SettingsField: Hashable {
+        case host
+        case port
+        case token
+    }
 
     var body: some View {
         ScrollView {
@@ -83,16 +92,13 @@ struct SettingsView: View {
                 settingsSection("Gateway Connection", icon: "antenna.radiowaves.left.and.right") {
                     VStack(spacing: 10) {
                         labeledField("Host") {
-                            TextField("127.0.0.1", text: $host)
-                                .textFieldStyle(.roundedBorder)
+                            settingsField("127.0.0.1", text: $host, field: .host)
                         }
                         labeledField("Port") {
-                            TextField("18789", text: $port)
-                                .textFieldStyle(.roundedBorder)
+                            settingsField("18789", text: $port, field: .port)
                         }
                         labeledField("Auth Token") {
-                            SecureField("token", text: $token)
-                                .textFieldStyle(.roundedBorder)
+                            settingsField("token", text: $token, field: .token, isSecure: true)
                         }
                         HStack(spacing: 10) {
                             Button("Test Connection") { testConnection() }
@@ -220,6 +226,61 @@ struct SettingsView: View {
                 .foregroundColor(Theme.textSecondary)
                 .frame(width: 80, alignment: .leading)
             content()
+        }
+    }
+
+    @ViewBuilder
+    private func settingsField(_ placeholder: String, text: Binding<String>, field: SettingsField, isSecure: Bool = false) -> some View {
+        let isFocused = focusedField == field
+        let isHovered = hoveredField == field
+
+        Group {
+            if isSecure {
+                SecureField(placeholder, text: text)
+            } else {
+                TextField(placeholder, text: text)
+            }
+        }
+        .textFieldStyle(.plain)
+        .foregroundColor(.white)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 7)
+        .background(fieldChrome(isFocused: isFocused, isHovered: isHovered))
+        .focused($focusedField, equals: field)
+        .onHover { hovering in
+            updateHoveredField(field, hovering: hovering)
+        }
+        .animation(reduceMotion ? nil : .easeOut(duration: 0.12), value: isFocused)
+        .animation(reduceMotion ? nil : .easeOut(duration: 0.12), value: isHovered)
+    }
+
+    private func fieldChrome(isFocused: Bool, isHovered: Bool) -> some View {
+        let borderColor: Color
+        if isFocused {
+            borderColor = Theme.jarvisBlue
+        } else if isHovered {
+            borderColor = Theme.jarvisBlue.opacity(0.65)
+        } else {
+            borderColor = Theme.darkBorder.opacity(0.9)
+        }
+
+        let surface = Theme.darkAccent.opacity(isFocused ? 0.9 : 0.75)
+        let glow = isFocused ? Theme.jarvisBlue.opacity(0.25) : Color.clear
+
+        return RoundedRectangle(cornerRadius: 8, style: .continuous)
+            .fill(surface)
+            .overlay(
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .stroke(borderColor, lineWidth: 1)
+            )
+            .shadow(color: glow, radius: isFocused ? 8 : 0)
+    }
+
+    private func updateHoveredField(_ field: SettingsField, hovering: Bool) {
+        if hovering {
+            hoveredField = field
+        } else if hoveredField == field {
+            hoveredField = nil
         }
     }
 
