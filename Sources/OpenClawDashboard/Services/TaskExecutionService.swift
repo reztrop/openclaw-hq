@@ -165,6 +165,9 @@ final class TaskExecutionService {
         Task: \(task.title)
         \(detailLine)
         Constraint: \(relayConstraint)
+        Constraint: Never run infrastructure control commands in this task.
+        Forbidden examples: `openclaw gateway*`, `launchctl *`, `pkill *`, `killall *`, `openclaw update`.
+        If infrastructure appears down, report it and continue with non-destructive verification steps.
 
         Continue from existing progress if present.
         You must take concrete execution action in this run.
