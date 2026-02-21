@@ -49,7 +49,6 @@ class AppViewModel: ObservableObject {
     private let taskInterventionService: TaskInterventionService
     private let taskCompactionService: TaskCompactionService
     private var taskExecutionService: TaskExecutionService?
-    private let isTaskAutomationEnabled = false
 
     private var cancellables = Set<AnyCancellable>()
 
@@ -82,7 +81,7 @@ class AppViewModel: ObservableObject {
         self.notificationService = notificationService
         self.taskExecutionService = taskExecutionService
 
-        if isTaskAutomationEnabled, self.taskExecutionService == nil {
+        if self.taskExecutionService == nil {
             let onTaskCompleted: (TaskItem) -> Void = { [weak self] task in
                 guard let self else { return }
                 self.projectsViewModel.handleTaskMovedToDone(task)
@@ -110,15 +109,13 @@ class AppViewModel: ObservableObject {
             guard let self else { return }
             self.projectsViewModel.handleProjectChatUserMessage(conversationId: sessionKey, message: message)
         }
-        if isTaskAutomationEnabled {
-            tasksViewModel.onTaskMovedToDone = { [weak self] task in
-                guard let self else { return }
-                self.projectsViewModel.handleTaskMovedToDone(task)
-            }
-            tasksViewModel.onTaskMovedToInProgress = { [weak self] task in
-                guard let self else { return }
-                self.taskExecutionService?.handleTaskMovedToInProgress(task)
-            }
+        tasksViewModel.onTaskMovedToDone = { [weak self] task in
+            guard let self else { return }
+            self.projectsViewModel.handleTaskMovedToDone(task)
+        }
+        tasksViewModel.onTaskMovedToInProgress = { [weak self] task in
+            guard let self else { return }
+            self.taskExecutionService?.handleTaskMovedToInProgress(task)
         }
 
         // Set up notifications
@@ -154,19 +151,16 @@ class AppViewModel: ObservableObject {
         taskService.$tasks
             .receive(on: DispatchQueue.main)
             .sink { [weak self] tasks in
-                guard let self else { return }
-                Task { [weak self] in
-                    guard let self else { return }
-                    if let interventionMessage = await self.taskInterventionService.evaluateRecurringIssueIntervention(tasks: tasks) {
-                        self.errorMessage = interventionMessage
-                        return
-                    }
-                    if let compactionMessage = await self.taskCompactionService.evaluateScopeCompaction(tasks: tasks) {
-                        self.errorMessage = compactionMessage
-                    }
+                Task { @MainActor [weak self] in
+                    await self?.handleTaskUpdates(tasks)
                 }
             }
             .store(in: &cancellables)
+
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            await handleTaskUpdates(self.taskService.tasks)
+        }
 
         // Check if onboarding is needed
         if !settingsService.settings.onboardingComplete {
@@ -211,6 +205,16 @@ class AppViewModel: ObservableObject {
         await agentsViewModel.refreshAgents()
         await skillsViewModel.refreshSkills()
         await projectsViewModel.reconcilePendingPlanningFromChatHistory()
+    }
+
+    private func handleTaskUpdates(_ tasks: [TaskItem]) async {
+        if let interventionMessage = await taskInterventionService.evaluateRecurringIssueIntervention(tasks: tasks) {
+            errorMessage = interventionMessage
+            return
+        }
+        if let compactionMessage = await taskCompactionService.evaluateScopeCompaction(tasks: tasks) {
+            errorMessage = compactionMessage
+        }
     }
 
     // recurring-issue intervention delegated directly in task sink
