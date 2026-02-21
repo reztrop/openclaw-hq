@@ -88,21 +88,17 @@ struct TasksView: View {
     }
 
     private var loadingState: some View {
-        HQPanel(cornerRadius: 16, surface: Theme.darkSurface.opacity(0.7), border: Theme.darkBorder.opacity(0.6), lineWidth: 1) {
-            VStack(spacing: 12) {
-                ProgressView()
-                    .progressViewStyle(.circular)
-                    .tint(Theme.neonCyan)
-                Text("Loading tasks…")
-                    .font(.headline)
-                    .foregroundColor(.white)
-                Text("Syncing local task board state.")
-                    .font(.caption)
-                    .foregroundColor(Theme.textMuted)
-            }
-            .frame(maxWidth: 420)
-            .padding(32)
-        }
+        HQStateView(
+            icon: "arrow.triangle.2.circlepath",
+            title: "Loading tasks…",
+            subtitle: "Syncing local task board state.",
+            tone: .accent,
+            iconSize: 28,
+            maxWidth: 420,
+            contentPadding: 28,
+            showsProgress: true,
+            progressTint: Theme.neonCyan
+        )
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .padding(24)
     }
