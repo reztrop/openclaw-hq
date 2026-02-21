@@ -80,11 +80,19 @@ struct ProviderSettingsView: View {
 
             if isExpanded {
                 if detectedProviders.isEmpty {
-                    Text("No providers found in auth.json")
-                        .font(.caption2)
-                        .foregroundColor(Theme.textMuted)
-                        .padding(.horizontal, 14)
-                        .padding(.bottom, 8)
+                    EmptyStateView(
+                        icon: "key",
+                        title: "No providers found",
+                        subtitle: "Check auth.json",
+                        alignment: .leading,
+                        textAlignment: .leading,
+                        maxWidth: .infinity,
+                        iconSize: 14,
+                        contentPadding: 6,
+                        showPanel: false
+                    )
+                    .padding(.horizontal, 14)
+                    .padding(.bottom, 8)
                 } else {
                     VStack(spacing: 2) {
                         ForEach(detectedProviders, id: \.self) { pid in

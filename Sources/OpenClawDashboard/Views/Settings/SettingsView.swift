@@ -67,10 +67,18 @@ struct SettingsView: View {
                 // MARK: API Connections
                 settingsSection("API Connections", icon: "key.fill") {
                     if detectedProviders.isEmpty {
-                        Text("No providers found in ~/.openclaw/agents/main/agent/auth.json")
-                            .font(.callout)
-                            .foregroundColor(Theme.textMuted)
-                            .padding(.vertical, 4)
+                        EmptyStateView(
+                            icon: "key",
+                            title: "No providers found",
+                            subtitle: "Check ~/.openclaw/agents/main/agent/auth.json",
+                            alignment: .leading,
+                            textAlignment: .leading,
+                            maxWidth: .infinity,
+                            iconSize: 18,
+                            contentPadding: 8,
+                            showPanel: false
+                        )
+                        .padding(.vertical, 4)
                     } else {
                         VStack(spacing: 0) {
                             ForEach(detectedProviders, id: \.self) { pid in
