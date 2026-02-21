@@ -5,6 +5,8 @@ import Foundation
 class TaskService: ObservableObject {
     @Published var tasks: [TaskItem] = []
     @Published var isExecutionPaused: Bool = false
+    @Published var isLoading: Bool = true
+    @Published var lastLoadError: String? = nil
 
     private let filePath: String
     private let stateFilePath: String
@@ -46,14 +48,18 @@ class TaskService: ObservableObject {
     // MARK: - Persistence
 
     func loadTasks() {
+        isLoading = true
+        defer { isLoading = false }
         // IMPORTANT: Never overwrite a user's tasks with sample data.
         // If the file is missing, recover from latest valid backup when possible.
         guard FileManager.default.fileExists(atPath: filePath) else {
             if recoverTasksFromBackupIfPossible() {
+                lastLoadError = nil
                 return
             }
             tasks = []
             lastTasksFileModificationDate = fileModificationDate(at: filePath)
+            lastLoadError = nil
             return
         }
 
@@ -65,6 +71,7 @@ class TaskService: ObservableObject {
             if enforceSingleInProgressPerAgent() {
                 saveTasks()
             }
+            lastLoadError = nil
         } catch {
             // Preserve a forensic snapshot of unreadable content, but never
             // remove the primary file path (moving it can look like deletion).
@@ -80,12 +87,14 @@ class TaskService: ObservableObject {
             }
 
             if recoverTasksFromBackupIfPossible() {
+                lastLoadError = nil
                 return
             }
 
             print("[TaskService] Failed to load tasks (no valid backup found, starting empty): \(error)")
             tasks = []
             lastTasksFileModificationDate = fileModificationDate(at: filePath)
+            lastLoadError = error.localizedDescription
         }
     }
 

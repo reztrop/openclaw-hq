@@ -36,27 +36,31 @@ struct TaskColumn: View {
             // Cards area
             ScrollView {
                 LazyVStack(spacing: 10) {
-                    ForEach(tasks) { task in
-                        TaskCard(
-                            task: task,
-                            onView: { onView(task) },
-                            showPausedOverlay: isExecutionPaused && status == .inProgress,
-                            showVerifiedOverlay: status == .done && task.isVerificationTask && task.isVerified
-                        )
-                            .draggable(task)
-                            .contextMenu {
-                                Button("Edit") { onEdit(task) }
-                                Divider()
-                                ForEach(TaskStatus.allCases, id: \.self) { targetStatus in
-                                    if targetStatus != status {
-                                        Button("Move to \(targetStatus.columnTitle)") {
-                                            onMove(task.id, targetStatus)
+                    if tasks.isEmpty {
+                        TaskColumnEmptyState(status: status)
+                    } else {
+                        ForEach(tasks) { task in
+                            TaskCard(
+                                task: task,
+                                onView: { onView(task) },
+                                showPausedOverlay: isExecutionPaused && status == .inProgress,
+                                showVerifiedOverlay: status == .done && task.isVerificationTask && task.isVerified
+                            )
+                                .draggable(task)
+                                .contextMenu {
+                                    Button("Edit") { onEdit(task) }
+                                    Divider()
+                                    ForEach(TaskStatus.allCases, id: \.self) { targetStatus in
+                                        if targetStatus != status {
+                                            Button("Move to \(targetStatus.columnTitle)") {
+                                                onMove(task.id, targetStatus)
+                                            }
                                         }
                                     }
+                                    Divider()
+                                    Button("Delete", role: .destructive) { onDelete(task.id) }
                                 }
-                                Divider()
-                                Button("Delete", role: .destructive) { onDelete(task.id) }
-                            }
+                        }
                     }
                 }
                 .padding(10)
@@ -84,4 +88,30 @@ struct TaskColumn: View {
         }
     }
 
+
+}
+
+private struct TaskColumnEmptyState: View {
+    let status: TaskStatus
+
+    var body: some View {
+        VStack(spacing: 8) {
+            Image(systemName: status.icon)
+                .font(.system(size: 22))
+                .foregroundColor(status.color.opacity(0.7))
+            Text("No \(status.columnTitle.lowercased()) tasks")
+                .font(.caption)
+                .foregroundColor(Theme.textMuted)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 24)
+        .background(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(Theme.darkSurface.opacity(0.35))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .stroke(Theme.darkBorder.opacity(0.4), lineWidth: 1)
+                )
+        )
+    }
 }

@@ -6,6 +6,7 @@ struct TaskCard: View {
     let showPausedOverlay: Bool
     let showVerifiedOverlay: Bool
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @FocusState private var isFocused: Bool
     @State private var isHovered = false
 
     var body: some View {
@@ -87,17 +88,20 @@ struct TaskCard: View {
         .padding(12)
         .background(
             RoundedRectangle(cornerRadius: 10)
-                .fill(Theme.darkAccent)
+                .fill(isFocused ? Theme.darkSurface.opacity(0.9) : Theme.darkAccent)
                 .overlay(
                     RoundedRectangle(cornerRadius: 10)
                         .stroke(
-                            isHovered ? task.priority.color.opacity(0.4) : Theme.darkBorder.opacity(0.3),
-                            lineWidth: 1
+                            isFocused ? Theme.jarvisBlue.opacity(0.8) : (isHovered ? task.priority.color.opacity(0.45) : Theme.darkBorder.opacity(0.3)),
+                            lineWidth: isFocused ? 1.5 : 1
                         )
                 )
         )
+        .shadow(color: isFocused ? Theme.jarvisBlue.opacity(0.3) : .clear, radius: 8, x: 0, y: 0)
         .scaleEffect(reduceMotion ? 1 : (isHovered ? 1.02 : 1.0))
         .animation(reduceMotion ? nil : .easeOut(duration: 0.15), value: isHovered)
+        .focusable(true)
+        .focused($isFocused)
         .onHover { hovering in
             isHovered = hovering
         }

@@ -37,6 +37,20 @@ class TasksViewModel: ObservableObject {
                 self?.objectWillChange.send()
             }
             .store(in: &cancellables)
+
+        taskService.$isLoading
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                self?.objectWillChange.send()
+            }
+            .store(in: &cancellables)
+
+        taskService.$lastLoadError
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                self?.objectWillChange.send()
+            }
+            .store(in: &cancellables)
     }
 
     var tasks: [TaskItem] {
@@ -53,6 +67,14 @@ class TasksViewModel: ObservableObject {
 
     var isExecutionPaused: Bool {
         taskService.isExecutionPaused
+    }
+
+    var isLoading: Bool {
+        taskService.isLoading
+    }
+
+    var loadError: String? {
+        taskService.lastLoadError
     }
 
     func toggleExecutionPaused() {
