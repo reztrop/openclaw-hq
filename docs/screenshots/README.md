@@ -52,3 +52,17 @@ These exist but still need to be mapped to the checklist above:
 - usage-reduce-motion-off.png
 - usage-reduce-motion-on.png
 - peekaboo-* (annotated review captures; not final)
+
+### Proposed Mapping (Needs Verification)
+| Requirement | Candidate Asset |
+| --- | --- |
+| Error state | `activity-error.png` |
+| Modal state | `add-agent-modal.png`, `task-detail-modal.png`, `usage-modal-about.png` |
+| Hover state | `usage-hover-refresh.png` |
+| Focus state | `usage-focus-30days.png`, `usage-focus-90days.png` |
+| Loading state | `usage-loading.png` |
+| Reduced Motion OFF | `usage-reduce-motion-off.png`, `hq-frontmost-motion-off.png` |
+| Reduced Motion ON | `usage-reduce-motion-on.png` |
+| Empty states | `projects-after.png`, `tasks-view.png`, `usage-after.png`, `settings-current-motion-off.png` |
+
+> Still missing: explicit empty-state captures for Chat, Skills, Activity Log, Agent Management, and Settings providers. Needs capture/rename once app is launched for validation.
