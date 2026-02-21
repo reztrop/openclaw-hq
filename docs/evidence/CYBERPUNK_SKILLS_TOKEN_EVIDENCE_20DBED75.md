@@ -29,6 +29,16 @@
 - Before: _Not captured in this environment._
 - After: _Not captured in this environment._
 
+### Suggested capture set (local run)
+- Skills tab default state (list populated).
+- Skills tab empty state (no enabled skills).
+- Skills tab loading state (spinner visible).
+- Skills tab error state (error banner visible).
+- Hover state (badge/row hover).
+- Focus state (search field + refresh button focus ring).
+- Reduced Motion ON (repeat default + hover).
+- Reduced Motion OFF (repeat default + hover).
+
 ## Limitations
 - UI automation and screenshots cannot be captured from this environment.
 - Evidence requires local run with screenshot capture tooling.
