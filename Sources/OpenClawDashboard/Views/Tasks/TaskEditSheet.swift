@@ -25,125 +25,126 @@ struct TaskEditSheet: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            header
+        HQModalChrome {
+            VStack(spacing: 0) {
+                header
 
-            Divider().background(Theme.darkBorder)
+                Divider().background(Theme.darkBorder)
 
-            ScrollView {
-                VStack(spacing: 16) {
-                    formSection(title: "Task Basics", subtitle: "Title and description for this task.") {
-                        VStack(spacing: 12) {
-                            labeledField("Title") {
-                                TextField("Task title", text: $title)
-                                    .textFieldStyle(.plain)
-                                    .foregroundColor(.white)
-                                    .focused($focusedField, equals: .title)
-                                    .padding(10)
-                                    .background(inputBackground(isFocused: focusedField == .title))
-                                    .overlay(inputBorder(isFocused: focusedField == .title))
-                                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-                            }
+                ScrollView {
+                    VStack(spacing: 16) {
+                        formSection(title: "Task Basics", subtitle: "Title and description for this task.") {
+                            VStack(spacing: 12) {
+                                labeledField("Title") {
+                                    TextField("Task title", text: $title)
+                                        .textFieldStyle(.plain)
+                                        .foregroundColor(.white)
+                                        .focused($focusedField, equals: .title)
+                                        .padding(10)
+                                        .background(inputBackground(isFocused: focusedField == .title))
+                                        .overlay(inputBorder(isFocused: focusedField == .title))
+                                        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                                }
 
-                            labeledField("Description") {
-                                TextEditor(text: $description)
-                                    .font(.body)
-                                    .foregroundColor(.white)
-                                    .scrollContentBackground(.hidden)
-                                    .focused($focusedField, equals: .description)
-                                    .frame(minHeight: 120)
-                                    .padding(8)
-                                    .background(inputBackground(isFocused: focusedField == .description))
-                                    .overlay(inputBorder(isFocused: focusedField == .description))
-                                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                                labeledField("Description") {
+                                    TextEditor(text: $description)
+                                        .font(.body)
+                                        .foregroundColor(.white)
+                                        .scrollContentBackground(.hidden)
+                                        .focused($focusedField, equals: .description)
+                                        .frame(minHeight: 120)
+                                        .padding(8)
+                                        .background(inputBackground(isFocused: focusedField == .description))
+                                        .overlay(inputBorder(isFocused: focusedField == .description))
+                                        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                                }
                             }
                         }
-                    }
 
-                    formSection(title: "Assignment", subtitle: "Who should handle this task?") {
-                        labeledField("Agent") {
-                            Picker("Agent", selection: $assignedAgent) {
-                                Text("Unassigned").tag("")
-                                ForEach(agentOptions.dropFirst(), id: \.self) { agent in
-                                    HStack {
-                                        Text(Theme.agentEmoji(for: agent))
-                                        Text(agent)
+                        formSection(title: "Assignment", subtitle: "Who should handle this task?") {
+                            labeledField("Agent") {
+                                Picker("Agent", selection: $assignedAgent) {
+                                    Text("Unassigned").tag("")
+                                    ForEach(agentOptions.dropFirst(), id: \.self) { agent in
+                                        HStack {
+                                            Text(Theme.agentEmoji(for: agent))
+                                            Text(agent)
+                                        }
+                                        .tag(agent)
                                     }
-                                    .tag(agent)
+                                }
+                                .pickerStyle(.menu)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(10)
+                                .background(inputBackground(isFocused: false))
+                                .overlay(inputBorder(isFocused: false))
+                                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                            }
+                        }
+
+                        formSection(title: "Priority", subtitle: "Signal urgency and focus.") {
+                            Picker("Priority", selection: $priority) {
+                                ForEach(TaskPriority.allCases, id: \.self) { p in
+                                    HStack {
+                                        Image(systemName: p.icon)
+                                            .foregroundColor(p.color)
+                                        Text(p.label)
+                                    }
+                                    .tag(p)
                                 }
                             }
-                            .pickerStyle(.menu)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(10)
-                            .background(inputBackground(isFocused: false))
-                            .overlay(inputBorder(isFocused: false))
-                            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                            .pickerStyle(.segmented)
+                            .tint(Theme.jarvisBlue)
                         }
-                    }
 
-                    formSection(title: "Priority", subtitle: "Signal urgency and focus.") {
-                        Picker("Priority", selection: $priority) {
-                            ForEach(TaskPriority.allCases, id: \.self) { p in
-                                HStack {
-                                    Image(systemName: p.icon)
-                                        .foregroundColor(p.color)
-                                    Text(p.label)
+                        formSection(title: "Schedule", subtitle: "Optional time for the task.") {
+                            VStack(spacing: 10) {
+                                Toggle("Schedule", isOn: $hasSchedule)
+                                    .toggleStyle(.switch)
+                                    .tint(Theme.jarvisBlue)
+                                    .foregroundColor(.white)
+                                if hasSchedule {
+                                    DatePicker("Date", selection: $scheduledFor, displayedComponents: [.date, .hourAndMinute])
+                                        .datePickerStyle(.field)
+                                        .labelsHidden()
+                                        .padding(10)
+                                        .background(inputBackground(isFocused: false))
+                                        .overlay(inputBorder(isFocused: false))
+                                        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
                                 }
-                                .tag(p)
                             }
                         }
-                        .pickerStyle(.segmented)
-                        .tint(Theme.jarvisBlue)
                     }
+                    .padding(16)
+                }
 
-                    formSection(title: "Schedule", subtitle: "Optional time for the task.") {
-                        VStack(spacing: 10) {
-                            Toggle("Schedule", isOn: $hasSchedule)
-                                .toggleStyle(.switch)
-                                .tint(Theme.jarvisBlue)
-                                .foregroundColor(.white)
-                            if hasSchedule {
-                                DatePicker("Date", selection: $scheduledFor, displayedComponents: [.date, .hourAndMinute])
-                                    .datePickerStyle(.field)
-                                    .labelsHidden()
-                                    .padding(10)
-                                    .background(inputBackground(isFocused: false))
-                                    .overlay(inputBorder(isFocused: false))
-                                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-                            }
-                        }
+                Divider().background(Theme.darkBorder)
+
+                HStack {
+                    Button("Cancel") { dismiss() }
+                        .keyboardShortcut(.cancelAction)
+                        .buttonStyle(HQButtonStyle(variant: .secondary))
+
+                    Spacer()
+
+                    Button(isEditing ? "Save" : "Create") {
+                        onSave(
+                            title,
+                            description.isEmpty ? nil : description,
+                            assignedAgent.isEmpty ? nil : assignedAgent,
+                            priority,
+                            hasSchedule ? scheduledFor : nil
+                        )
+                        dismiss()
                     }
+                    .keyboardShortcut(.defaultAction)
+                    .disabled(title.isEmpty)
+                    .buttonStyle(HQButtonStyle(variant: .primary))
                 }
                 .padding(16)
             }
-
-            Divider().background(Theme.darkBorder)
-
-            HStack {
-                Button("Cancel") { dismiss() }
-                    .keyboardShortcut(.cancelAction)
-                    .buttonStyle(HQButtonStyle(variant: .secondary))
-
-                Spacer()
-
-                Button(isEditing ? "Save" : "Create") {
-                    onSave(
-                        title,
-                        description.isEmpty ? nil : description,
-                        assignedAgent.isEmpty ? nil : assignedAgent,
-                        priority,
-                        hasSchedule ? scheduledFor : nil
-                    )
-                    dismiss()
-                }
-                .keyboardShortcut(.defaultAction)
-                .disabled(title.isEmpty)
-                .buttonStyle(HQButtonStyle(variant: .primary))
-            }
-            .padding(16)
+            .frame(width: 520, height: 560)
         }
-        .frame(width: 520, height: 560)
-        .background(Theme.darkBackground)
         .onAppear {
             if let task = task {
                 title = task.title

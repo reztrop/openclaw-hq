@@ -648,28 +648,29 @@ struct ChatView: View {
         }
         .padding(12)
         .sheet(isPresented: $showAddTagSheet) {
-            VStack(alignment: .leading, spacing: 12) {
-                Text("Add Tag")
-                    .font(.headline)
-                    .foregroundColor(.white)
-                TextField("example: blocked", text: $newTagInput)
-                    .textFieldStyle(.roundedBorder)
-                HStack {
-                    Spacer()
-                    Button("Cancel") {
-                        newTagInput = ""
-                        showAddTagSheet = false
+            HQModalChrome(padding: 20) {
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("Add Tag")
+                        .font(.headline)
+                        .foregroundColor(.white)
+                    TextField("example: blocked", text: $newTagInput)
+                        .textFieldStyle(.roundedBorder)
+                    HStack {
+                        Spacer()
+                        Button("Cancel") {
+                            newTagInput = ""
+                            showAddTagSheet = false
+                        }
+                        Button("Add") {
+                            addTagFromInput()
+                        }
+                        .buttonStyle(HQButtonStyle(variant: .primary))
+                        .disabled(newTagInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                     }
-                    Button("Add") {
-                        addTagFromInput()
-                    }
-                    .buttonStyle(HQButtonStyle(variant: .primary))
-                    .disabled(newTagInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 }
+                .padding(16)
+                .frame(width: 360)
             }
-            .padding(16)
-            .frame(width: 360)
-            .background(Theme.darkBackground)
         }
     }
 

@@ -21,46 +21,47 @@ struct AddAgentView: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            // Header
-            HStack {
-                Text("Add Agent")
-                    .font(.title2)
-                    .fontWeight(.bold)
-                    .foregroundColor(.white)
-                Spacer()
-                Button("Done") { dismiss() }
-                    .buttonStyle(.plain)
-                    .foregroundColor(Theme.textMuted)
-            }
-            .padding(24)
-            .background(Theme.darkSurface)
+        HQModalChrome {
+            VStack(spacing: 0) {
+                // Header
+                HStack {
+                    Text("Add Agent")
+                        .font(.title2)
+                        .fontWeight(.bold)
+                        .foregroundColor(.white)
+                    Spacer()
+                    Button("Done") { dismiss() }
+                        .buttonStyle(.plain)
+                        .foregroundColor(Theme.textMuted)
+                }
+                .padding(24)
+                .background(Theme.darkSurface)
 
-            // Mode picker
-            Picker("Mode", selection: $mode) {
-                Text("Create New").tag(AddAgentMode.create)
-                Text("Scan for Missing").tag(AddAgentMode.scan)
-            }
-            .pickerStyle(.segmented)
-            .padding(.horizontal, 24)
-            .padding(.vertical, 16)
-            .background(Theme.darkSurface)
+                // Mode picker
+                Picker("Mode", selection: $mode) {
+                    Text("Create New").tag(AddAgentMode.create)
+                    Text("Scan for Missing").tag(AddAgentMode.scan)
+                }
+                .pickerStyle(.segmented)
+                .padding(.horizontal, 24)
+                .padding(.vertical, 16)
+                .background(Theme.darkSurface)
 
-            Divider().opacity(0.3)
+                Divider().opacity(0.3)
 
-            // Content
-            if mode == .create {
-                CreateAgentForm()
-                    .environmentObject(agentsVM)
-                    .environmentObject(gatewayService)
-            } else {
-                ScanAgentsView()
-                    .environmentObject(agentsVM)
-                    .environmentObject(gatewayService)
+                // Content
+                if mode == .create {
+                    CreateAgentForm()
+                        .environmentObject(agentsVM)
+                        .environmentObject(gatewayService)
+                } else {
+                    ScanAgentsView()
+                        .environmentObject(agentsVM)
+                        .environmentObject(gatewayService)
+                }
             }
+            .frame(minWidth: 820, minHeight: 760)
         }
-        .background(Theme.darkBackground)
-        .frame(minWidth: 820, minHeight: 760)
         .preferredColorScheme(.dark)
     }
 }

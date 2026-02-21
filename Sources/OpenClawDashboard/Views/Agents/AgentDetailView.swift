@@ -7,61 +7,62 @@ struct AgentDetailView: View {
     @State private var selectedSection = 0
 
     var body: some View {
-        VStack(spacing: 0) {
-            // Header
-            HStack {
-                // Agent identity
-                VStack(alignment: .leading, spacing: 2) {
-                    HStack(spacing: 4) {
-                        Text(agent.emoji)
-                        Text(agent.name)
-                            .fontWeight(.bold)
-                            .foregroundColor(.white)
+        HQModalChrome {
+            VStack(spacing: 0) {
+                // Header
+                HStack {
+                    // Agent identity
+                    VStack(alignment: .leading, spacing: 2) {
+                        HStack(spacing: 4) {
+                            Text(agent.emoji)
+                            Text(agent.name)
+                                .fontWeight(.bold)
+                                .foregroundColor(.white)
+                        }
+                        HStack(spacing: 4) {
+                            StatusIndicator(status: agent.status, size: 8)
+                            Text(agent.status.label)
+                                .font(.caption)
+                                .foregroundColor(agent.status.color)
+                        }
                     }
-                    HStack(spacing: 4) {
-                        StatusIndicator(status: agent.status, size: 8)
-                        Text(agent.status.label)
-                            .font(.caption)
-                            .foregroundColor(agent.status.color)
+                    Spacer()
+                    Button { dismiss() } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.title2)
+                            .foregroundColor(Theme.textMuted)
                     }
+                    .buttonStyle(.plain)
                 }
-                Spacer()
-                Button { dismiss() } label: {
-                    Image(systemName: "xmark.circle.fill")
-                        .font(.title2)
-                        .foregroundColor(Theme.textMuted)
-                }
-                .buttonStyle(.plain)
-            }
-            .padding()
+                .padding()
 
-            // Tab picker (only shown when Command tab is available)
-            if agent.status.isActive {
-                Picker("", selection: $selectedSection) {
-                    Text("Info").tag(0)
-                    Text("Command").tag(1)
-                }
-                .pickerStyle(.segmented)
-                .padding(.horizontal)
-                .padding(.bottom, 8)
-            } else {
-                Text("Agent Info")
-                    .font(.title3)
-                    .fontWeight(.semibold)
-                    .foregroundColor(.white)
-                    .frame(maxWidth: .infinity)
+                // Tab picker (only shown when Command tab is available)
+                if agent.status.isActive {
+                    Picker("", selection: $selectedSection) {
+                        Text("Info").tag(0)
+                        Text("Command").tag(1)
+                    }
+                    .pickerStyle(.segmented)
+                    .padding(.horizontal)
                     .padding(.bottom, 8)
-            }
+                } else {
+                    Text("Agent Info")
+                        .font(.title3)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.bottom, 8)
+                }
 
-            // Content
-            if selectedSection == 0 {
-                infoSection
-            } else {
-                AgentCommandView(agent: agent, gatewayService: gatewayService)
+                // Content
+                if selectedSection == 0 {
+                    infoSection
+                } else {
+                    AgentCommandView(agent: agent, gatewayService: gatewayService)
+                }
             }
+            .frame(width: 680, height: 780)
         }
-        .frame(width: 680, height: 780)
-        .background(Theme.darkBackground)
     }
 
     // MARK: - Info Section
