@@ -25,3 +25,30 @@ Examples:
 - `chat-empty-motion-off.png`
 - `tasks-empty-motion-on.png`
 - `settings-providers-empty-motion-off.png`
+
+### Current Assets (Uncurated)
+These exist but still need to be mapped to the checklist above:
+- activity-error.png
+- add-agent-modal.png
+- agents-current.png
+- hq-frontmost-motion-off.png
+- hq-frontmost-motion-off-2.png
+- hq-screen-motion-off.png
+- hq-screen-motion-off-2.png
+- hq-window.png
+- nexus-task-state-before.png
+- projects-after.png
+- settings.png
+- settings-current-motion-off.png
+- task-detail-modal.png
+- tasks-view.png
+- usage-after.png
+- usage-before.png
+- usage-focus-30days.png
+- usage-focus-90days.png
+- usage-hover-refresh.png
+- usage-loading.png
+- usage-modal-about.png
+- usage-reduce-motion-off.png
+- usage-reduce-motion-on.png
+- peekaboo-* (annotated review captures; not final)
