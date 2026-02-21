@@ -73,9 +73,11 @@ struct HQBadge: View {
     let text: String
     var tone: HQTone = .neutral
     var systemImage: String? = nil
+    var color: Color? = nil
 
     var body: some View {
-        HStack(spacing: 5) {
+        let resolvedColor = color ?? tone.color
+        return HStack(spacing: 5) {
             if let systemImage {
                 Image(systemName: systemImage)
                     .font(.caption2)
@@ -83,10 +85,10 @@ struct HQBadge: View {
             Text(text)
                 .font(.caption2.weight(.semibold))
         }
-        .foregroundColor(tone.color)
+        .foregroundColor(resolvedColor)
         .padding(.horizontal, 8)
         .padding(.vertical, 3)
-        .background(tone.color.opacity(0.14))
+        .background(resolvedColor.opacity(0.14))
         .clipShape(Capsule())
     }
 }
