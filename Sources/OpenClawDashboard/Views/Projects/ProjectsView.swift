@@ -198,26 +198,47 @@ struct ProjectsView: View {
             HStack {
                 Text(project.title)
                     .font(.headline)
-                    .foregroundColor(.white)
+                    .fontWeight(isSelected ? .semibold : .regular)
+                    .foregroundColor(isSelected ? Theme.textPrimary : Theme.textSecondary)
                     .lineLimit(1)
                 Spacer()
                 HQBadge(text: project.blueprint.activeStage.rawValue, tone: .neutral)
             }
             Text(project.blueprint.overview)
                 .font(.caption)
-                .foregroundColor(Theme.textSecondary)
+                .foregroundColor(isSelected ? Theme.textSecondary : Theme.textMuted)
                 .lineLimit(2)
             Text(project.updatedAt.formatted(date: .abbreviated, time: .shortened))
                 .font(.caption2)
-                .foregroundColor(Theme.textMuted)
+                .foregroundColor(isSelected ? Theme.textMetadata : Theme.textMuted)
         }
         .padding(10)
-        .background(isSelected ? Theme.darkAccent : Theme.darkBackground)
-        .overlay(
-            RoundedRectangle(cornerRadius: 10)
-                .stroke(isSelected ? Theme.jarvisBlue : Theme.darkBorder, lineWidth: 1)
+        .background(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(isSelected ? Theme.darkAccent : Theme.darkSurface)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .stroke(
+                            isSelected
+                                ? Theme.neonCyan.opacity(0.9)
+                                : (isHovered ? Theme.darkBorder : Theme.darkBorder.opacity(0.6)),
+                            lineWidth: isSelected ? 1.2 : 1
+                        )
+                )
+                .shadow(color: isSelected ? Theme.neonCyan.opacity(0.12) : .clear, radius: 10)
         )
+        .overlay(alignment: .leading) {
+            if isSelected {
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill(Theme.neonCyan)
+                    .frame(width: 3)
+                    .padding(.vertical, 6)
+            }
+        }
         .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .onHover { hovering in
+            hoveredProjectId = hovering ? project.id : (hoveredProjectId == project.id ? nil : hoveredProjectId)
+        }
     }
 
     private func stageBar(_ project: ProjectRecord) -> some View {
