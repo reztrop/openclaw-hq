@@ -66,6 +66,8 @@ class GatewayService: ObservableObject {
     private var currentHost: String = Constants.gatewayHost
     private var currentPort: Int    = Constants.gatewayPort
     private var currentToken: String = ""
+    private var lastLocalRecoveryAt: Date = .distantPast
+    private let localRecoveryCooldown: TimeInterval = 10
 
     private var deviceIdentity: DeviceIdentity?
     private var deviceAuth: DeviceAuth?
@@ -667,6 +669,7 @@ class GatewayService: ObservableObject {
         let msg = "Reconnecting in \(Int(delay))s…"
         connectionState = .disconnected(msg)
         lastError = msg
+        attemptLocalGatewayRecoveryIfNeeded(reason: msg)
 
         try? await Task.sleep(for: .seconds(delay))
         isReconnecting = false
@@ -728,9 +731,67 @@ class GatewayService: ObservableObject {
                     self.pingTask = nil
                     self.webSocketTask?.cancel(with: .goingAway, reason: nil)
                     self.webSocketTask = nil
+                    self.attemptLocalGatewayRecoveryIfNeeded(reason: msg)
                     await self.scheduleReconnect()
                 }
             }
+        }
+    }
+
+    // MARK: - Local Gateway Recovery
+
+    private func attemptLocalGatewayRecoveryIfNeeded(reason: String) {
+        let host = currentHost.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        let isLocalHost = host == "127.0.0.1" || host == "localhost" || host == "::1"
+        guard isLocalHost else { return }
+
+        let now = Date()
+        guard now.timeIntervalSince(lastLocalRecoveryAt) >= localRecoveryCooldown else { return }
+        lastLocalRecoveryAt = now
+
+        let uid = String(getuid())
+        let home = FileManager.default.homeDirectoryForCurrentUser.path
+        let gatewayPlist = "\(home)/Library/LaunchAgents/ai.openclaw.gateway.plist"
+
+        let envPath = "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+        let env: [String: String] = ["PATH": envPath, "HOME": home]
+
+        if FileManager.default.fileExists(atPath: gatewayPlist) {
+            runProcess(
+                launchPath: "/bin/launchctl",
+                arguments: ["bootstrap", "gui/\(uid)", gatewayPlist],
+                environment: env
+            )
+            runProcess(
+                launchPath: "/bin/launchctl",
+                arguments: ["kickstart", "-k", "gui/\(uid)/ai.openclaw.gateway"],
+                environment: env
+            )
+        }
+
+        runProcess(
+            launchPath: "/opt/homebrew/bin/openclaw",
+            arguments: ["gateway", "start"],
+            environment: env
+        )
+
+        print("[GatewayService] Local recovery attempted after disconnect: \(reason)")
+    }
+
+    @discardableResult
+    private func runProcess(launchPath: String, arguments: [String], environment: [String: String]) -> Int32 {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: launchPath)
+        process.arguments = arguments
+        process.environment = environment
+        process.standardOutput = Pipe()
+        process.standardError = Pipe()
+        do {
+            try process.run()
+            process.waitUntilExit()
+            return process.terminationStatus
+        } catch {
+            return -1
         }
     }
 }
