@@ -18,6 +18,7 @@ class AgentsViewModel: ObservableObject {
     private var cancellables = Set<AnyCancellable>()
     private var autoRefreshTask: Task<Void, Never>?
     private var runtimeBusyAgents: Set<String> = []
+    private var runtimeBusyLastEventAt: [String: Date] = [:]
 
     init(gatewayService: GatewayService, settingsService: SettingsService, taskService: TaskService) {
         self.gatewayService = gatewayService
@@ -1116,12 +1117,15 @@ class AgentsViewModel: ObservableObject {
             switch phase {
             case "start":
                 runtimeBusyAgents.insert(agentId)
+                runtimeBusyLastEventAt[agentId] = Date()
                 agents[idx].currentActivity = "Working..."
             case "end":
                 runtimeBusyAgents.remove(agentId)
+                runtimeBusyLastEventAt.removeValue(forKey: agentId)
                 agents[idx].currentActivity = nil
             case "error":
                 runtimeBusyAgents.remove(agentId)
+                runtimeBusyLastEventAt.removeValue(forKey: agentId)
                 agents[idx].currentActivity = nil
             default:
                 break
@@ -1129,6 +1133,7 @@ class AgentsViewModel: ObservableObject {
         case "assistant":
             // Text is streaming — agent is active
             runtimeBusyAgents.insert(agentId)
+            runtimeBusyLastEventAt[agentId] = Date()
         default:
             break
         }
@@ -1169,6 +1174,15 @@ class AgentsViewModel: ObservableObject {
     }
 
     private func applyTaskDrivenStatuses() {
+        let now = Date()
+        let staleBusyThreshold: TimeInterval = 90
+        for id in runtimeBusyAgents {
+            if let last = runtimeBusyLastEventAt[id], now.timeIntervalSince(last) > staleBusyThreshold {
+                runtimeBusyLastEventAt.removeValue(forKey: id)
+                runtimeBusyAgents.remove(id)
+            }
+        }
+
         for i in agents.indices {
             if !gatewayService.isConnected {
                 agents[i].status = .offline

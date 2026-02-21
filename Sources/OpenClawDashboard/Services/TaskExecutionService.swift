@@ -196,7 +196,10 @@ final class TaskExecutionService {
                     onTaskCompleted(done)
                 }
             case .continueWork:
-                taskService.moveTask(task.id, to: .queued)
+                // Keep active work visible in In Progress between execution passes.
+                taskService.mutateTask(task.id) { mutable in
+                    mutable.status = .inProgress
+                }
                 setCooldown(task.id, seconds: 120)
             case .blocked:
                 taskService.moveTask(task.id, to: .queued)
