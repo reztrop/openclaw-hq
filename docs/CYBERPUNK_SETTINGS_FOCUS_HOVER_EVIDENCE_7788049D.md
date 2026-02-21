@@ -1,0 +1,20 @@
+# OpenClaw HQ — Settings Focus/Hover Parity Evidence
+
+- **Task ID:** 7788049D-F9E6-4CAA-B472-123C6107F02A
+- **Date:** 2026-02-21
+- **Scope:** Settings tab form field focus/hover styling (Gateway Connection section)
+
+## Evidence
+
+| ID | State | File |
+| --- | --- | --- |
+| EV-7788049D-001 | Settings baseline (before) | `docs/evidence/7788049D-F9E6-4CAA-B472-123C6107F02A/settings-before.png` |
+| EV-7788049D-002 | Host field focused | `docs/evidence/7788049D-F9E6-4CAA-B472-123C6107F02A/settings-focus-host.png` |
+| EV-7788049D-003 | Port field hover | `docs/evidence/7788049D-F9E6-4CAA-B472-123C6107F02A/settings-hover-port.png` |
+| EV-7788049D-004 | Port field focused | `docs/evidence/7788049D-F9E6-4CAA-B472-123C6107F02A/settings-focus-port.png` |
+| EV-7788049D-005 | Auth token field focused | `docs/evidence/7788049D-F9E6-4CAA-B472-123C6107F02A/settings-focus-token.png` |
+
+## Notes
+- Captures taken via Peekaboo on macOS.
+- Reduced Motion ON/OFF not captured in this pass (manual toggle required in System Settings).
+- Additional states (modals/empty/loading/error) not exercised in Settings; no dedicated states present in this view.
