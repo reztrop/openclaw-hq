@@ -24,7 +24,7 @@ struct TaskCard: View {
                 if let scheduled = task.scheduledFor {
                     Text(scheduled.relativeString)
                         .font(.caption2)
-                        .foregroundColor(Theme.textMuted)
+                        .foregroundColor(Theme.textMetadata)
                 }
                 if let onView {
                     Button {
@@ -81,7 +81,7 @@ struct TaskCard: View {
                 Spacer()
                 Text((task.lastEvidenceAt ?? task.updatedAt).relativeString)
                     .font(.caption2)
-                    .foregroundColor(Theme.textMuted)
+                    .foregroundColor(Theme.textMetadata)
             }
         }
         .padding(12)

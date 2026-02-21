@@ -33,8 +33,9 @@ enum Theme {
 
     // MARK: - Text
     static let textPrimary = Color(hex: "#DCE8FF")
-    static let textSecondary = Color(hex: "#A6B7D8")
-    static let textMuted = Color(hex: "#7384A3")
+    static let textSecondary = Color(hex: "#B5C6E6")
+    static let textMuted = Color(hex: "#91A7CC")
+    static let textMetadata = Color(hex: "#7CEBFF")
 
     // MARK: - Kanban Column Colors
     static let columnScheduled = Color(hex: "#6366F1")
