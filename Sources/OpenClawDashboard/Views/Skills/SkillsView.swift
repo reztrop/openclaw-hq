@@ -86,9 +86,15 @@ struct SkillsView: View {
                 }
 
                 if filteredSkills.isEmpty {
-                    Text("No enabled skills found.")
-                        .foregroundColor(Theme.textMuted)
-                        .frame(maxWidth: .infinity, minHeight: 140)
+                    EmptyStateView(
+                        icon: "sparkles",
+                        title: "No enabled skills found",
+                        subtitle: "Enable a skill to see it listed here.",
+                        maxWidth: .infinity,
+                        iconSize: 24,
+                        contentPadding: 16,
+                        showPanel: true
+                    )
                 } else {
                     LazyVStack(spacing: 10) {
                         ForEach(filteredSkills) { skill in

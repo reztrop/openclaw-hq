@@ -247,9 +247,16 @@ struct UsageView: View {
             if !usageVM.sessions.isEmpty {
                 SessionsList(sessions: usageVM.sessions)
             } else {
-                Text("No sessions found")
-                    .foregroundColor(Theme.textMuted)
-                    .frame(maxWidth: .infinity, minHeight: 60)
+                EmptyStateView(
+                    icon: "clock",
+                    title: "No sessions found",
+                    subtitle: nil,
+                    maxWidth: .infinity,
+                    iconSize: 20,
+                    contentPadding: 8,
+                    showPanel: false
+                )
+                .frame(maxWidth: .infinity, minHeight: 60)
             }
         }
         .padding(16)
@@ -258,9 +265,15 @@ struct UsageView: View {
     }
 
     private func emptyChart(message: String) -> some View {
-        Text(message)
-            .font(.subheadline)
-            .foregroundColor(Theme.textSecondary)
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        EmptyStateView(
+            icon: "chart.line.downtrend.xyaxis",
+            title: message,
+            subtitle: nil,
+            maxWidth: .infinity,
+            iconSize: 20,
+            contentPadding: 8,
+            showPanel: false
+        )
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }

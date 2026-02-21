@@ -25,13 +25,23 @@ struct TaskColumn: View {
                     .fontWeight(.bold)
                     .foregroundColor(.white)
                 Spacer()
-                HQBadge(text: "\(tasks.count)", tone: .neutral)
+                HQBadge(text: "\(tasks.count)", color: status.color)
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 10)
+            .background(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .fill(status.color.opacity(0.12))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .stroke(status.color.opacity(0.35), lineWidth: 1)
+                    )
+            )
+            .padding(.horizontal, 8)
+            .padding(.top, 8)
 
             Divider()
-                .background(status.color.opacity(0.3))
+                .background(status.color.opacity(0.45))
 
             // Cards area
             ScrollView {
@@ -71,7 +81,7 @@ struct TaskColumn: View {
             HQPanel(
                 cornerRadius: 12,
                 surface: Theme.darkSurface.opacity(0.5),
-                border: isTargeted ? status.color.opacity(0.6) : Theme.darkBorder.opacity(0.3),
+                border: isTargeted ? status.color.opacity(0.75) : status.color.opacity(0.25),
                 lineWidth: isTargeted ? 2 : 1
             ) { Color.clear }
         )
@@ -95,23 +105,17 @@ private struct TaskColumnEmptyState: View {
     let status: TaskStatus
 
     var body: some View {
-        VStack(spacing: 8) {
-            Image(systemName: status.icon)
-                .font(.system(size: 22))
-                .foregroundColor(status.color.opacity(0.7))
-            Text("No \(status.columnTitle.lowercased()) tasks")
-                .font(.caption)
-                .foregroundColor(Theme.textMuted)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 24)
-        .background(
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .fill(Theme.darkSurface.opacity(0.35))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .stroke(Theme.darkBorder.opacity(0.4), lineWidth: 1)
-                )
+        EmptyStateView(
+            icon: status.icon,
+            title: "No \(status.columnTitle.lowercased()) tasks",
+            subtitle: nil,
+            alignment: .center,
+            textAlignment: .center,
+            maxWidth: .infinity,
+            iconSize: 20,
+            iconColor: status.color.opacity(0.75),
+            contentPadding: 16,
+            showPanel: true
         )
     }
 }

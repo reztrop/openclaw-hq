@@ -354,18 +354,17 @@ struct ChatView: View {
     @ViewBuilder
     private var emptyState: some View {
         HStack {
-            HQPanel(cornerRadius: 12, surface: Theme.darkSurface.opacity(0.6), border: Theme.darkBorder.opacity(0.6), lineWidth: 1) {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("No messages yet")
-                        .font(.system(.headline, design: .monospaced))
-                        .foregroundColor(Theme.textPrimary)
-                    Text("Start a new message or attach files to kick things off.")
-                        .font(.system(.caption, design: .monospaced))
-                        .foregroundColor(Theme.textMuted)
-                }
-                .padding(12)
-                .frame(maxWidth: 520, alignment: .leading)
-            }
+            EmptyStateView(
+                icon: "bubble.left.and.bubble.right",
+                title: "No messages yet",
+                subtitle: "Start a new message or attach files to kick things off.",
+                alignment: .leading,
+                textAlignment: .leading,
+                maxWidth: 520,
+                iconSize: 28,
+                contentPadding: 16,
+                showPanel: true
+            )
             Spacer()
         }
         .padding(.horizontal, 16)

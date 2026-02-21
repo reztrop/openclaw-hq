@@ -75,13 +75,14 @@ struct ProjectsView: View {
             VStack(spacing: 12) {
                 topBar
                 Spacer()
-                Text("No Projects Yet")
-                    .font(.title3.bold())
-                    .foregroundColor(.white)
-                Text("Use Chat -> Start Project Planning, then work with Jarvis. A project appears here once Jarvis confirms scope is ready.")
-                    .foregroundColor(Theme.textSecondary)
-                    .multilineTextAlignment(.center)
-                    .frame(maxWidth: 680)
+                EmptyStateView(
+                    icon: "tray.2",
+                    title: "No projects yet",
+                    subtitle: "Use Chat → Start Project Planning, then work with Jarvis. A project appears here once Jarvis confirms scope is ready.",
+                    maxWidth: 680,
+                    iconSize: 36,
+                    showPanel: true
+                )
                 Spacer()
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -99,17 +100,17 @@ struct ProjectsView: View {
             }
 
             if projectsVM.projects.isEmpty {
-                HQCard(padding: 10) {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text("No projects yet")
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundColor(.white)
-                        Text("Projects are created automatically when Jarvis confirms planning scope is ready.")
-                            .font(.caption)
-                            .foregroundColor(Theme.textSecondary)
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                }
+                EmptyStateView(
+                    icon: "tray.2",
+                    title: "No projects yet",
+                    subtitle: "Projects are created automatically when Jarvis confirms planning scope is ready.",
+                    alignment: .leading,
+                    textAlignment: .leading,
+                    maxWidth: .infinity,
+                    iconSize: 20,
+                    contentPadding: 12,
+                    showPanel: true
+                )
             }
 
             ScrollView {
