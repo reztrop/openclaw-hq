@@ -7,6 +7,7 @@ struct ProjectsView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @State private var isSidebarCollapsed = false
+    @State private var hoveredProjectId: String?
 
     var body: some View {
         GeometryReader { geo in
@@ -195,6 +196,7 @@ struct ProjectsView: View {
 
     private func projectRow(_ project: ProjectRecord) -> some View {
         let isSelected = projectsVM.selectedProjectId == project.id
+        let isHovered = hoveredProjectId == project.id
         return VStack(alignment: .leading, spacing: 6) {
             HStack {
                 Text(project.title)
