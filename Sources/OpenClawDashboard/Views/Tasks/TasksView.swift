@@ -104,22 +104,16 @@ struct TasksView: View {
     }
 
     private func errorState(_ message: String) -> some View {
-        HQPanel(cornerRadius: 16, surface: Theme.darkSurface.opacity(0.8), border: Theme.statusOffline.opacity(0.6), lineWidth: 1) {
-            VStack(spacing: 12) {
-                Image(systemName: "exclamationmark.triangle.fill")
-                    .font(.system(size: 34))
-                    .foregroundColor(Theme.statusOffline)
-                Text("Tasks failed to load")
-                    .font(.headline)
-                    .foregroundColor(.white)
-                Text(message)
-                    .font(.caption)
-                    .foregroundColor(Theme.textMuted)
-                    .multilineTextAlignment(.center)
-            }
-            .frame(maxWidth: 460)
-            .padding(32)
-        }
+        HQStateView(
+            icon: "exclamationmark.triangle.fill",
+            title: "Tasks failed to load",
+            subtitle: message,
+            tone: .danger,
+            iconSize: 34,
+            maxWidth: 460,
+            contentPadding: 24,
+            showPanel: true
+        )
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .padding(24)
     }
