@@ -144,17 +144,11 @@ struct ActivityLogView: View {
     // MARK: - Empty State
 
     private var emptyState: some View {
-        VStack(spacing: 12) {
-            Image(systemName: "text.bubble")
-                .font(.system(size: 40))
-                .foregroundColor(Theme.textMuted)
-            Text("No Events Yet")
-                .font(.headline)
-                .foregroundColor(Theme.textSecondary)
-            Text("Activity from agents and the gateway will appear here.")
-                .font(.caption)
-                .foregroundColor(Theme.textMuted)
-        }
+        EmptyStateView(
+            icon: "text.bubble",
+            title: "No events yet",
+            subtitle: "Activity from agents and the gateway will appear here."
+        )
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }

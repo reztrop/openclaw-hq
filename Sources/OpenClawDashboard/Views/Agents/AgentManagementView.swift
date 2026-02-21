@@ -159,44 +159,24 @@ struct AgentManagementView: View {
     }
 
     private var emptyState: some View {
-        VStack(spacing: 20) {
-            Image(systemName: "cpu")
-                .font(.system(size: 48))
-                .foregroundColor(Theme.textMuted)
-
-            Text("No Agents Found")
-                .font(.title2)
-                .fontWeight(.semibold)
-                .foregroundColor(.white)
-
-            Text("Connect to your gateway and click + to add your first agent, or scan to discover existing ones.")
-                .multilineTextAlignment(.center)
-                .foregroundColor(Theme.textSecondary)
-                .frame(maxWidth: 360)
-
-            HStack(spacing: 12) {
-                Button {
-                    addMode = .scan
-                    showAddSheet = true
-                } label: {
-                    Label("Scan for Agents", systemImage: "arrow.clockwise.circle")
-                }
-                .buttonStyle(.bordered)
-                .disabled(!gatewayService.isConnected)
-
-                Button {
-                    addMode = .create
-                    showAddSheet = true
-                } label: {
-                    Label("Create Agent", systemImage: "plus.circle")
-                }
-                .buttonStyle(.borderedProminent)
-                .tint(Theme.jarvisBlue)
-                .disabled(!gatewayService.isConnected)
+        EmptyStateView(
+            icon: "cpu",
+            title: "No agents found",
+            subtitle: "Connect to your gateway and click + to add your first agent, or scan to discover existing ones.",
+            actionLabel: "Create Agent",
+            action: {
+                addMode = .create
+                showAddSheet = true
+            },
+            secondaryActionLabel: "Scan for Agents",
+            secondaryAction: {
+                addMode = .scan
+                showAddSheet = true
             }
-        }
+        )
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .padding(48)
+        .disabled(!gatewayService.isConnected)
     }
 
     private func checkForUpdates() async {
