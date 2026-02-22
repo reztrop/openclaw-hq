@@ -201,6 +201,9 @@ class ChatViewModel: ObservableObject {
         messages = []
         draftMessage = ""
         pendingAttachments = []
+        streamingText = nil
+        isSending = false
+        activeRunSessionKey = nil
 
         conversations.insert(
             ChatConversation(id: draftId, title: "New Chat", agentId: defaultAgentId, updatedAt: Date()),

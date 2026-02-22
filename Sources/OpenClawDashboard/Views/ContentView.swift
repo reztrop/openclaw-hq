@@ -27,7 +27,6 @@ struct ContentView: View {
 
     private var titleBar: some View {
         HStack(spacing: 0) {
-            // Left: app identity
             HStack(spacing: 6) {
                 Text("OPENCLAW")
                     .font(.system(.subheadline, design: .monospaced, weight: .black))
@@ -44,7 +43,6 @@ struct ContentView: View {
 
             Spacer()
 
-            // Center: current tab
             Text("[ \(appViewModel.selectedTab.rawValue.uppercased()) ]")
                 .font(Theme.terminalFont)
                 .foregroundColor(Theme.textMetadata)
@@ -52,7 +50,6 @@ struct ContentView: View {
 
             Spacer()
 
-            // Right: live clock
             TimelineView(.periodic(from: .now, by: 60)) { _ in
                 Text(currentTimeString)
                     .font(Theme.terminalFontSM)
@@ -64,8 +61,7 @@ struct ContentView: View {
         .background(
             ZStack {
                 Theme.darkBackground.opacity(0.95)
-                Rectangle()
-                    .fill(Theme.neonCyan.opacity(0.06))
+                Rectangle().fill(Theme.neonCyan.opacity(0.06))
             }
         )
         .overlay(alignment: .bottom) {
@@ -85,11 +81,20 @@ struct ContentView: View {
 
     private var mainLayout: some View {
         GeometryReader { geo in
-            HSplitView {
-                if !appViewModel.isMainSidebarCollapsed {
+            HStack(spacing: 0) {
+                // Sidebar — always present, either full or icon rail
+                if appViewModel.isMainSidebarCollapsed {
+                    iconRail
+                        .frame(width: 44)
+                } else {
                     sidebarColumn
                         .frame(minWidth: 180, idealWidth: 210, maxWidth: 280)
                 }
+
+                // Neon separator
+                Rectangle()
+                    .fill(Theme.neonCyan.opacity(0.3))
+                    .frame(width: 1)
 
                 detailView
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -99,24 +104,89 @@ struct ContentView: View {
             .onChange(of: geo.size.width) { _, newWidth in
                 updateWindowLayoutFlags(for: newWidth)
             }
-            .onChange(of: appViewModel.selectedTab) { _, tab in
-                if tab != .chat { appViewModel.isMainSidebarCollapsed = false }
-            }
         }
     }
 
-    // MARK: - Sidebar Column
+    // MARK: - Icon Rail (collapsed sidebar)
+
+    private var iconRail: some View {
+        VStack(spacing: 0) {
+            // Mini logo
+            Text("⬡")
+                .font(.system(size: 16, weight: .black))
+                .foregroundColor(Theme.neonCyan)
+                .padding(.top, 12)
+                .padding(.bottom, 8)
+
+            Rectangle()
+                .fill(Theme.neonCyan.opacity(0.2))
+                .frame(height: 1)
+                .padding(.horizontal, 6)
+
+            // Icon buttons
+            ScrollView {
+                VStack(spacing: 4) {
+                    ForEach(AppTab.allCases, id: \.self) { tab in
+                        iconRailButton(tab)
+                    }
+                }
+                .padding(.vertical, 8)
+            }
+
+            Spacer(minLength: 0)
+
+            // Collapse toggle
+            Button {
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    appViewModel.isMainSidebarCollapsed = false
+                }
+            } label: {
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundColor(Theme.textMuted)
+                    .frame(width: 44, height: 32)
+            }
+            .buttonStyle(.plain)
+
+            // SYS dot
+            Circle()
+                .fill(appViewModel.gatewayService.isConnected ? Theme.statusOnline : Theme.statusOffline)
+                .frame(width: 6, height: 6)
+                .shadow(color: appViewModel.gatewayService.isConnected ? Theme.statusOnline.opacity(0.8) : Theme.statusOffline.opacity(0.8), radius: 4)
+                .padding(.bottom, 12)
+        }
+        .background(Theme.darkSurface.opacity(0.85))
+    }
+
+    private func iconRailButton(_ tab: AppTab) -> some View {
+        let isActive = appViewModel.selectedTab == tab
+        return Button {
+            appViewModel.selectedTab = tab
+        } label: {
+            Image(systemName: tab.icon)
+                .font(.system(size: 14, weight: isActive ? .semibold : .regular))
+                .foregroundColor(isActive ? Theme.neonMagenta : Theme.neonMagenta.opacity(0.4))
+                .shadow(color: isActive ? Theme.neonMagenta.opacity(0.9) : .clear, radius: 8, x: 0, y: 0)
+                .frame(width: 44, height: 36)
+                .background(
+                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                        .fill(isActive ? Theme.neonMagenta.opacity(0.1) : Color.clear)
+                )
+        }
+        .buttonStyle(.plain)
+        .help(tab.rawValue)
+    }
+
+    // MARK: - Full Sidebar Column
 
     private var sidebarColumn: some View {
         VStack(spacing: 0) {
             sidebarHeader
 
-            // Neon divider
             Rectangle()
                 .fill(Theme.neonCyan.opacity(0.25))
                 .frame(height: 1)
 
-            // Tab list
             ScrollView {
                 VStack(spacing: 2) {
                     ForEach(AppTab.allCases, id: \.self) { tab in
@@ -129,6 +199,26 @@ struct ContentView: View {
 
             Spacer(minLength: 0)
 
+            // Collapse toggle button
+            Button {
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    appViewModel.isMainSidebarCollapsed = true
+                }
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: "chevron.left")
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundColor(Theme.textMuted)
+                    Text("COLLAPSE")
+                        .font(Theme.terminalFontSM)
+                        .foregroundColor(Theme.textMuted.opacity(0.6))
+                    Spacer()
+                }
+                .frame(height: 28)
+                .padding(.horizontal, 12)
+            }
+            .buttonStyle(.plain)
+
             connectionStatus
         }
         .background(
@@ -139,15 +229,9 @@ struct ContentView: View {
                     .opacity(0.08)
             }
         )
-        .overlay(alignment: .trailing) {
-            // Right-edge neon separator
-            Rectangle()
-                .fill(Theme.neonCyan.opacity(0.3))
-                .frame(width: 1)
-        }
     }
 
-    // MARK: - Terminal Tab Row
+    // MARK: - Terminal Tab Row (expanded sidebar)
 
     private func terminalTabRow(_ tab: AppTab) -> some View {
         let isActive = appViewModel.selectedTab == tab
@@ -156,20 +240,21 @@ struct ContentView: View {
             appViewModel.selectedTab = tab
         } label: {
             HStack(spacing: 8) {
-                // Left active stripe
+                // Left active stripe — neonMagenta
                 Rectangle()
-                    .fill(isActive ? Theme.neonCyan : Color.clear)
+                    .fill(isActive ? Theme.neonMagenta : Color.clear)
                     .frame(width: 3)
                     .animation(.easeOut(duration: 0.15), value: isActive)
 
                 Image(systemName: tab.icon)
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundColor(isActive ? Theme.neonCyan : Theme.textMuted)
+                    .font(.system(size: 11, weight: isActive ? .semibold : .regular))
+                    .foregroundColor(isActive ? Theme.neonMagenta : Theme.neonMagenta.opacity(0.4))
+                    .shadow(color: isActive ? Theme.neonMagenta.opacity(0.8) : .clear, radius: 6, x: 0, y: 0)
                     .frame(width: 16)
 
                 Text(isActive ? "▶ \(tab.rawValue.uppercased())" : tab.rawValue.uppercased())
                     .font(Theme.terminalFontSM)
-                    .foregroundColor(isActive ? Theme.neonCyan : Theme.textMuted)
+                    .foregroundColor(isActive ? Theme.neonMagenta : Theme.textMuted)
                     .tracking(0.8)
 
                 Spacer()
@@ -177,9 +262,9 @@ struct ContentView: View {
             .frame(height: 34)
             .background(
                 RoundedRectangle(cornerRadius: 6, style: .continuous)
-                    .fill(isActive ? Theme.neonCyan.opacity(0.08) : Color.clear)
+                    .fill(isActive ? Theme.neonMagenta.opacity(0.08) : Color.clear)
             )
-            .shadow(color: isActive ? Theme.neonCyan.opacity(0.2) : .clear, radius: 6, x: 0, y: 0)
+            .shadow(color: isActive ? Theme.neonMagenta.opacity(0.15) : .clear, radius: 6, x: 0, y: 0)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -205,6 +290,10 @@ struct ContentView: View {
             Text("// v1.0 · LOFI CYBERNET")
                 .font(Theme.terminalFontSM)
                 .foregroundColor(Theme.textMuted.opacity(0.7))
+
+            Text("Designed by Portzy")
+                .font(Theme.terminalFontSM)
+                .foregroundColor(Theme.neonMagenta.opacity(0.6))
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 14)
@@ -220,7 +309,6 @@ struct ContentView: View {
                 .frame(height: 1)
 
             VStack(alignment: .leading, spacing: 6) {
-                // SYS status line
                 HStack(spacing: 6) {
                     StatusIndicator(status: appViewModel.gatewayService.isConnected ? .online : .offline)
                         .frame(width: 8, height: 8)
@@ -237,12 +325,10 @@ struct ContentView: View {
                     .buttonStyle(.plain)
                 }
 
-                // Gateway address
                 Text("GW: 127.0.0.1:18789")
                     .font(Theme.terminalFontSM)
                     .foregroundColor(Theme.textMuted.opacity(0.6))
 
-                // Health stats if connected
                 if appViewModel.gatewayService.isConnected, let health = gatewayStatusVM.health {
                     HStack(spacing: 10) {
                         Text("RUNS:\(health.activeRuns)")
@@ -350,16 +436,9 @@ struct ContentView: View {
     }
 
     private func updateWindowLayoutFlags(for width: CGFloat) {
-        let state = ContentLayoutPolicy.state(
-            for: width,
-            selectedTab: appViewModel.selectedTab,
-            currentSidebarCollapsed: appViewModel.isMainSidebarCollapsed
-        )
-        if appViewModel.isCompactWindow != state.isCompactWindow {
-            appViewModel.isCompactWindow = state.isCompactWindow
-        }
-        if appViewModel.isMainSidebarCollapsed != state.isMainSidebarCollapsed {
-            appViewModel.isMainSidebarCollapsed = state.isMainSidebarCollapsed
+        let isCompact = width < ContentLayoutPolicy.compactThreshold
+        if appViewModel.isCompactWindow != isCompact {
+            appViewModel.isCompactWindow = isCompact
         }
     }
 }
@@ -389,7 +468,6 @@ struct LoadingView: View {
 
     var body: some View {
         VStack(spacing: 20) {
-            // Pulsing terminal cursor
             Text("█")
                 .font(.system(size: 48, design: .monospaced))
                 .foregroundColor(Theme.neonCyan)

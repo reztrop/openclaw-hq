@@ -241,28 +241,37 @@ struct ChatView: View {
                     .truncationMode(.tail)
             }
 
-            // Agent picker with terminal label prefix
-            HStack(spacing: 6) {
-                Text("SELECT_AGENT:")
-                    .font(Theme.terminalFontSM)
-                    .foregroundColor(Theme.textMuted)
-                    .tracking(1)
-                    .fixedSize()
-                Picker("Agent", selection: $chatVM.selectedAgentId) {
-                    ForEach(agentsVM.agents, id: \.id) { agent in
-                        Text("\(agent.emoji)  \(agent.name)").tag(agent.id)
-                    }
-                }
-                .pickerStyle(.menu)
-                .frame(width: 180)
-                .disabled(chatVM.selectedConversationIsLockedToAgent)
-            }
-
+            // Agent picker or lock badge
             if chatVM.selectedConversationIsLockedToAgent {
-                Text("SESSION:LOCKED — NEW_CHAT TO SWITCH")
-                    .font(Theme.terminalFontSM)
-                    .foregroundColor(Theme.textMuted)
-                    .fixedSize()
+                // Show clear badge instead of disabled picker
+                let lockedAgent = agentsVM.agents.first { $0.id == chatVM.selectedAgentId }
+                HStack(spacing: 6) {
+                    Text("AGENT:")
+                        .font(Theme.terminalFontSM)
+                        .foregroundColor(Theme.textMuted)
+                    Text("\(lockedAgent?.emoji ?? "🤖") \((lockedAgent?.name ?? "UNKNOWN").uppercased())")
+                        .font(Theme.terminalFont)
+                        .foregroundColor(Theme.neonMagenta)
+                    Text("[SESSION LOCKED]")
+                        .font(Theme.terminalFontSM)
+                        .foregroundColor(Theme.neonMagenta.opacity(0.6))
+                }
+                .fixedSize()
+            } else {
+                HStack(spacing: 6) {
+                    Text("SELECT_AGENT:")
+                        .font(Theme.terminalFontSM)
+                        .foregroundColor(Theme.textMuted)
+                        .tracking(1)
+                        .fixedSize()
+                    Picker("Agent", selection: $chatVM.selectedAgentId) {
+                        ForEach(agentsVM.agents, id: \.id) { agent in
+                            Text("\(agent.emoji)  \(agent.name)").tag(agent.id)
+                        }
+                    }
+                    .pickerStyle(.menu)
+                    .frame(width: 180)
+                }
             }
 
             Spacer()
@@ -394,70 +403,39 @@ struct ChatView: View {
 
     @ViewBuilder
     private var streamingBubble: some View {
-        HStack {
-            HQPanel(cornerRadius: 10, surface: Theme.darkSurface.opacity(0.85), border: Theme.darkBorder.opacity(0.5), lineWidth: 1) {
-                VStack(alignment: .leading, spacing: 0) {
-                    Button {
-                        if reduceMotion {
-                            chatVM.streamingLogExpanded.toggle()
-                        } else {
-                            withAnimation(.easeInOut(duration: 0.2)) {
-                                chatVM.streamingLogExpanded.toggle()
-                            }
-                        }
-                    } label: {
-                        HStack(spacing: 8) {
-                            ThinkingDotsView()
-                                .frame(width: 28, height: 14)
+        HStack(spacing: 10) {
+            ThinkingDotsView()
 
-                            if chatVM.streamingStatusLine.isEmpty {
-                                Text("status> \(selectedAgentName().lowercased()) is working…")
-                                    .font(Theme.terminalFontSM)
-                                    .foregroundColor(Theme.textMuted)
-                            } else {
-                                Text("status> \(chatVM.streamingStatusLine)")
-                                    .font(Theme.terminalFontSM)
-                                    .foregroundColor(Theme.textSecondary)
-                                    .lineLimit(1)
-                                    .truncationMode(.tail)
-                                    .frame(maxWidth: 560, alignment: .leading)
-                            }
-
-                            Spacer()
-
-                            if let log = chatVM.streamingText, !log.isEmpty {
-                                Image(systemName: chatVM.streamingLogExpanded ? "chevron.up" : "chevron.down")
-                                    .font(.system(size: 9, weight: .semibold))
-                                    .foregroundColor(Theme.textMuted)
-                            }
-                        }
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 8)
-                        .background(Theme.darkSurface.opacity(0.9))
-                        .cornerRadius(10, corners: chatVM.streamingLogExpanded ? [.topLeft, .topRight] : [.topLeft, .topRight, .bottomLeft, .bottomRight])
-                    }
-                    .buttonStyle(.plain)
-
-                    if chatVM.streamingLogExpanded, let log = chatVM.streamingText, !log.isEmpty {
-                        ScrollView(.vertical) {
-                            Text(log)
-                                .font(Theme.terminalFontSM)
-                                .foregroundColor(Theme.textMuted.opacity(0.85))
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .padding(10)
-                                .textSelection(.enabled)
-                        }
-                        .frame(maxHeight: 220)
-                        .background(Theme.darkSurface.opacity(0.6))
-                        .cornerRadius(0)
-                        .cornerRadius(10, corners: [.bottomLeft, .bottomRight])
-                        .transition(reduceMotion ? .opacity : .opacity.combined(with: .move(edge: .top)))
-                    }
-                }
-                .frame(maxWidth: 700, alignment: .leading)
-            }
+            let statusText = chatVM.streamingStatusLine.isEmpty
+                ? "\(selectedAgentName()) is working..."
+                : chatVM.streamingStatusLine
+            Text(statusText)
+                .font(Theme.terminalFontSM)
+                .foregroundColor(Theme.neonCyan)
+                .lineLimit(1)
+                .truncationMode(.tail)
 
             Spacer()
+
+            Button {
+                chatVM.stopCurrentRun()
+            } label: {
+                HStack(spacing: 4) {
+                    Image(systemName: "stop.fill")
+                        .font(.system(size: 9, weight: .bold))
+                    Text("STOP")
+                        .font(Theme.terminalFontSM)
+                }
+            }
+            .buttonStyle(HQButtonStyle(variant: .danger))
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 8)
+        .background(Theme.darkSurface.opacity(0.9))
+        .overlay(alignment: .bottom) {
+            Rectangle()
+                .fill(Theme.neonCyan.opacity(0.2))
+                .frame(height: 1)
         }
         .padding(.horizontal, 16)
     }
@@ -594,27 +572,18 @@ struct ChatView: View {
                     .padding(6)
                 }
 
-                if chatVM.isSending {
-                    Button {
-                        chatVM.stopCurrentRun()
-                    } label: {
-                        Image(systemName: "stop.fill")
-                    }
-                    .buttonStyle(HQButtonStyle(variant: .danger))
-                    .transition(reduceMotion ? .opacity : .scale.combined(with: .opacity))
-                } else {
-                    Button {
-                        Task { await sendCurrentMessageWithSelectedTags() }
-                    } label: {
-                        Image(systemName: "paperplane.fill")
-                    }
-                    .buttonStyle(HQButtonStyle(variant: .glow))
-                    .disabled(
-                        chatVM.draftMessage.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                        && chatVM.pendingAttachments.isEmpty
-                    )
-                    .transition(reduceMotion ? .opacity : .scale.combined(with: .opacity))
+                Button {
+                    Task { await sendCurrentMessageWithSelectedTags() }
+                } label: {
+                    Image(systemName: "paperplane.fill")
                 }
+                .buttonStyle(HQButtonStyle(variant: .glow))
+                .disabled(
+                    chatVM.isSending
+                    || (chatVM.draftMessage.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                        && chatVM.pendingAttachments.isEmpty)
+                )
+                .transition(reduceMotion ? .opacity : .scale.combined(with: .opacity))
             }
 
             HStack(spacing: 10) {
@@ -769,11 +738,15 @@ struct ChatView: View {
                                             .font(Theme.terminalFontSM)
                                     }
 
-                                    VStack(alignment: .leading, spacing: 4) {
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        let rowAgent = agentsVM.agents.first { $0.id == convo.agentId }
+                                        Text("\(rowAgent?.emoji ?? "🤖") \((rowAgent?.name ?? "UNKNOWN").uppercased())")
+                                            .font(Theme.terminalFontSM)
+                                            .foregroundColor(isActive ? Theme.neonMagenta : Theme.textMuted)
                                         Text(convo.title.isEmpty ? "SESSION" : convo.title.uppercased())
                                             .font(.system(.caption, design: .monospaced).weight(isActive ? .semibold : .regular))
                                             .foregroundColor(isActive ? Theme.neonCyan : Theme.textSecondary)
-                                            .lineLimit(2)
+                                            .lineLimit(1)
                                         Text(convo.updatedAt.formatted(.dateTime.month().day().hour().minute()))
                                             .font(Theme.terminalFontSM)
                                             .foregroundColor(Theme.textMuted)
