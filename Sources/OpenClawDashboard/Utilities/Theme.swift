@@ -11,12 +11,31 @@ enum Theme {
     static let neonCyan = Color(hex: "#4CF2FF")
     static let neonMagenta = Color(hex: "#FF5FD2")
     static let neonLime = Color(hex: "#C5FF6B")
+    static let glitchAmber = Color(hex: "#FFE566")
+    static let gridLineColor = Color(hex: "#2A3A56").opacity(0.3)
+
+    // MARK: - Typography
+    static let terminalFont = Font.system(.caption, design: .monospaced, weight: .regular)
+    static let terminalFontSM = Font.system(.caption2, design: .monospaced, weight: .regular)
+    static let headerFont = Font.system(.headline, design: .monospaced, weight: .bold)
+    static let subheaderFont = Font.system(.subheadline, design: .monospaced, weight: .semibold)
+
+    // MARK: - Scanline
+    static let scanlineOpacity: Double = 0.07
 
     static let backdropGradient = LinearGradient(
         colors: [Color(hex: "#070A12"), Color(hex: "#111827"), Color(hex: "#0B1020")],
         startPoint: .topLeading,
         endPoint: .bottomTrailing
     )
+
+    // MARK: - Neon Glow Shadows
+    static func neonGlow(_ color: Color, radius: CGFloat = 8) -> some View {
+        Rectangle()
+            .fill(Color.clear)
+            .shadow(color: color.opacity(0.7), radius: radius / 2, x: 0, y: 0)
+            .shadow(color: color.opacity(0.35), radius: radius, x: 0, y: 0)
+    }
 
     // MARK: - Agent Brand Colors
     static let jarvisBlue = Color(hex: "#4CF2FF")

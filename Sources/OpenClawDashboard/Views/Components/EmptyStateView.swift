@@ -18,15 +18,32 @@ struct EmptyStateView: View {
 
     var body: some View {
         let content = VStack(alignment: alignment, spacing: 12) {
-            Image(systemName: icon)
-                .font(.system(size: iconSize, weight: .semibold))
-                .foregroundColor(iconColor)
+            // ASCII bracket frame around icon: "[ 🔍 ]"
+            HStack(spacing: 4) {
+                Text("[")
+                    .font(.system(size: iconSize * 0.7, design: .monospaced).weight(.thin))
+                    .foregroundColor(Theme.neonCyan.opacity(0.4))
+                Image(systemName: icon)
+                    .font(.system(size: iconSize, weight: .semibold))
+                    .foregroundColor(iconColor)
+                Text("]")
+                    .font(.system(size: iconSize * 0.7, design: .monospaced).weight(.thin))
+                    .foregroundColor(Theme.neonCyan.opacity(0.4))
+            }
 
-            Text(title)
-                .font(.system(.title3, design: .monospaced).weight(.semibold))
-                .foregroundColor(Theme.textPrimary)
-                .multilineTextAlignment(textAlignment)
+            // "// NO_DATA" prefix + title
+            VStack(alignment: alignment, spacing: 4) {
+                Text("// NO_DATA")
+                    .font(Theme.terminalFontSM)
+                    .foregroundColor(Theme.textMuted)
+                    .multilineTextAlignment(textAlignment)
+                Text(title)
+                    .font(.system(.title3, design: .monospaced).weight(.semibold))
+                    .foregroundColor(Theme.textPrimary)
+                    .multilineTextAlignment(textAlignment)
+            }
 
+            // Subtitle in muted monospaced
             if let subtitle, !subtitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                 Text(subtitle)
                     .font(.system(.caption, design: .monospaced))
@@ -34,17 +51,17 @@ struct EmptyStateView: View {
                     .multilineTextAlignment(textAlignment)
             }
 
+            // Action buttons
             if actionLabel != nil || secondaryActionLabel != nil {
                 HStack(spacing: 12) {
                     if let secondaryActionLabel, let secondaryAction {
                         Button(secondaryActionLabel, action: secondaryAction)
-                            .buttonStyle(.bordered)
+                            .buttonStyle(HQButtonStyle(variant: .secondary))
                     }
 
                     if let actionLabel, let action {
                         Button(actionLabel, action: action)
-                            .buttonStyle(.borderedProminent)
-                            .tint(Theme.jarvisBlue)
+                            .buttonStyle(HQButtonStyle(variant: .glow))
                     }
                 }
             }

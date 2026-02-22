@@ -15,47 +15,48 @@ struct TaskColumn: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // Column header
-            HStack {
-                Image(systemName: status.icon)
+            // Column header with box-drawing chars: "┌─[ STATUS: N ]─"
+            HStack(spacing: 0) {
+                Text("┌─[")
+                    .font(.system(.caption, design: .monospaced))
+                    .foregroundColor(status.color.opacity(0.6))
+                Text(" \(status.columnTitle.uppercased()): \(tasks.count) ")
+                    .font(.system(.caption, design: .monospaced).weight(.bold))
                     .foregroundColor(status.color)
-                    .font(.subheadline)
-                Text(status.columnTitle)
-                    .font(.headline)
-                    .fontWeight(.bold)
-                    .foregroundColor(.white)
-                Spacer()
-                HQBadge(text: "\(tasks.count)", color: status.color)
+                Text("]─")
+                    .font(.system(.caption, design: .monospaced))
+                    .foregroundColor(status.color.opacity(0.6))
+                Rectangle()
+                    .fill(status.color.opacity(0.3))
+                    .frame(height: 1)
+                    .padding(.top, 1)
             }
-            .padding(.horizontal, 12)
+            .padding(.horizontal, 10)
             .padding(.vertical, 10)
             .background(
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .fill(status.color.opacity(0.12))
+                status.color.opacity(0.08)
                     .overlay(
-                        RoundedRectangle(cornerRadius: 10, style: .continuous)
-                            .stroke(status.color.opacity(0.35), lineWidth: 1)
+                        Rectangle()
+                            .fill(status.color.opacity(0.2))
+                            .frame(height: 1),
+                        alignment: .bottom
                     )
             )
-            .padding(.horizontal, 8)
-            .padding(.top, 8)
 
-            Divider()
-                .background(status.color.opacity(0.45))
-
-            // Cards area
-            ScrollView {
-                LazyVStack(spacing: 10) {
-                    if tasks.isEmpty {
-                        TaskColumnEmptyState(status: status)
-                    } else {
-                        ForEach(tasks) { task in
-                            TaskCard(
-                                task: task,
-                                onView: { onView(task) },
-                                showPausedOverlay: isExecutionPaused && status == .inProgress,
-                                showVerifiedOverlay: status == .done && task.isVerificationTask && task.isVerified
-                            )
+            // Cards area with faint status tint + scanline overlay
+            ScanlinePanel(opacity: 0.03) {
+                ScrollView {
+                    LazyVStack(spacing: 10) {
+                        if tasks.isEmpty {
+                            TaskColumnEmptyState(status: status)
+                        } else {
+                            ForEach(tasks) { task in
+                                TaskCard(
+                                    task: task,
+                                    onView: { onView(task) },
+                                    showPausedOverlay: isExecutionPaused && status == .inProgress,
+                                    showVerifiedOverlay: status == .done && task.isVerificationTask && task.isVerified
+                                )
                                 .draggable(task)
                                 .contextMenu {
                                     Button("Edit") { onEdit(task) }
@@ -70,20 +71,26 @@ struct TaskColumn: View {
                                     Divider()
                                     Button("Delete", role: .destructive) { onDelete(task.id) }
                                 }
+                            }
                         }
                     }
+                    .padding(10)
                 }
-                .padding(10)
             }
+            .background(status.color.opacity(0.03))
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(
             HQPanel(
                 cornerRadius: 12,
                 surface: Theme.darkSurface.opacity(0.5),
-                border: isTargeted ? status.color.opacity(0.75) : status.color.opacity(0.25),
+                border: isTargeted ? status.color.opacity(0.85) : status.color.opacity(0.25),
                 lineWidth: isTargeted ? 2 : 1
             ) { Color.clear }
+        )
+        .shadow(
+            color: isTargeted ? status.color.opacity(0.25) : .clear,
+            radius: isTargeted ? 12 : 0
         )
         .dropDestination(for: TaskItem.self) { items, _ in
             onDrop(items)
@@ -97,8 +104,6 @@ struct TaskColumn: View {
             }
         }
     }
-
-
 }
 
 private struct TaskColumnEmptyState: View {

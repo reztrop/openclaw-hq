@@ -30,29 +30,56 @@ struct AgentManagementView: View {
                 if agentsVM.agents.isEmpty && !agentsVM.isRefreshing {
                     emptyState
                 } else {
-                    LazyVGrid(columns: columns, spacing: 20) {
-                        ForEach(agentsVM.agents) { agent in
-                            AgentCard(agent: agent) {
-                                agentToEdit = agent
-                            }
-                            .onTapGesture {
-                                agentsVM.selectedAgent = agent
-                            }
-                            .contextMenu {
-                                Button(role: .destructive) {
-                                    agentToDelete = agent
-                                    showDeleteConfirm = true
-                                } label: {
-                                    Label(
-                                        agent.isDefaultAgent ? "Cannot Delete Main Agent" : "Delete Agent",
-                                        systemImage: "trash"
+                    ZStack {
+                        // Dot-grid canvas background
+                        Canvas { context, size in
+                            let spacing: CGFloat = 24
+                            let dotRadius: CGFloat = 1.0
+                            let cols = Int(size.width / spacing) + 1
+                            let rows = Int(size.height / spacing) + 1
+                            for row in 0..<rows {
+                                for col in 0..<cols {
+                                    let x = CGFloat(col) * spacing
+                                    let y = CGFloat(row) * spacing
+                                    let rect = CGRect(
+                                        x: x - dotRadius,
+                                        y: y - dotRadius,
+                                        width: dotRadius * 2,
+                                        height: dotRadius * 2
+                                    )
+                                    context.fill(
+                                        Path(ellipseIn: rect),
+                                        with: .color(Theme.neonCyan.opacity(0.12))
                                     )
                                 }
-                                .disabled(agent.isDefaultAgent)
                             }
                         }
+                        .allowsHitTesting(false)
+
+                        LazyVGrid(columns: columns, spacing: 20) {
+                            ForEach(agentsVM.agents) { agent in
+                                AgentCard(agent: agent) {
+                                    agentToEdit = agent
+                                }
+                                .onTapGesture {
+                                    agentsVM.selectedAgent = agent
+                                }
+                                .contextMenu {
+                                    Button(role: .destructive) {
+                                        agentToDelete = agent
+                                        showDeleteConfirm = true
+                                    } label: {
+                                        Label(
+                                            agent.isDefaultAgent ? "Cannot Delete Main Agent" : "Delete Agent",
+                                            systemImage: "trash"
+                                        )
+                                    }
+                                    .disabled(agent.isDefaultAgent)
+                                }
+                            }
+                        }
+                        .padding(24)
                     }
-                    .padding(24)
                 }
             }
         }
@@ -104,23 +131,33 @@ struct AgentManagementView: View {
         .overlay {
             if isInstallingUpdate {
                 ZStack {
-                    Color.black.opacity(0.35).ignoresSafeArea()
-                    VStack(spacing: 12) {
+                    Color.black.opacity(0.55).ignoresSafeArea()
+                    VStack(spacing: 16) {
+                        // Terminal loading screen style
+                        Text("// INSTALLING_UPDATE")
+                            .font(Theme.headerFont)
+                            .foregroundColor(Theme.neonCyan)
+                            .shadow(color: Theme.neonCyan.opacity(0.6), radius: 8, x: 0, y: 0)
+                            .crtFlicker()
+
                         ProgressView()
+                            .tint(Theme.neonCyan)
                             .scaleEffect(1.1)
-                        Text("Installing update...")
-                            .foregroundColor(.white)
-                            .font(.headline)
-                        Text("OpenClaw HQ will relaunch when complete.")
+
+                        Text("Applying patch. OpenClaw HQ will relaunch when complete.")
+                            .font(Theme.terminalFont)
                             .foregroundColor(Theme.textMuted)
-                            .font(.caption)
+                            .multilineTextAlignment(.center)
                     }
-                    .padding(24)
-                    .background(Theme.darkSurface)
-                    .clipShape(RoundedRectangle(cornerRadius: 14))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 14)
-                            .stroke(Theme.darkBorder.opacity(0.5), lineWidth: 1)
+                    .padding(32)
+                    .background(
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .fill(Theme.darkSurface)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                    .stroke(Theme.neonCyan.opacity(0.4), lineWidth: 1)
+                            )
+                            .shadow(color: Theme.neonCyan.opacity(0.2), radius: 16, x: 0, y: 0)
                     )
                 }
             }
@@ -128,52 +165,95 @@ struct AgentManagementView: View {
     }
 
     private var controlsBar: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: 12) {
+            // Header label
+            Text("[ AGENT_ROSTER ]")
+                .font(Theme.headerFont)
+                .foregroundColor(Theme.neonCyan)
+                .shadow(color: Theme.neonCyan.opacity(0.5), radius: 6, x: 0, y: 0)
+
+            Spacer()
+
             Button {
                 addMode = .create
                 showAddSheet = true
             } label: {
-                Label("Add Agent", systemImage: "plus.circle.fill")
+                HStack(spacing: 6) {
+                    Image(systemName: "plus")
+                        .font(.system(size: 11, weight: .bold))
+                    Text("ADD_UNIT")
+                        .font(Theme.terminalFont)
+                }
             }
-            .labelStyle(.titleAndIcon)
+            .buttonStyle(HQButtonStyle(variant: .glow))
             .disabled(!gatewayService.isConnected)
             .help("Create a new agent")
 
             Button {
                 Task { await checkForUpdates() }
             } label: {
-                if isCheckingForUpdates || isInstallingUpdate {
-                    Label("Checking...", systemImage: "arrow.triangle.2.circlepath")
-                } else {
-                    Label("Check for Updates", systemImage: "arrow.down.circle")
+                HStack(spacing: 6) {
+                    if isCheckingForUpdates || isInstallingUpdate {
+                        ProgressView()
+                            .controlSize(.mini)
+                            .tint(Theme.neonCyan)
+                    } else {
+                        Image(systemName: "arrow.down.circle")
+                            .font(.system(size: 11, weight: .bold))
+                    }
+                    Text(isCheckingForUpdates || isInstallingUpdate ? "CHECKING..." : "CHECK_UPDATES")
+                        .font(Theme.terminalFont)
                 }
             }
+            .buttonStyle(HQButtonStyle(variant: .secondary))
             .disabled(isCheckingForUpdates || isInstallingUpdate)
             .help("Check GitHub for newer OpenClaw HQ releases")
-
-            Spacer()
         }
         .padding(.horizontal, 24)
-        .padding(.vertical, 10)
+        .padding(.vertical, 12)
         .background(Theme.darkBackground)
     }
 
     private var emptyState: some View {
-        EmptyStateView(
-            icon: "cpu",
-            title: "No agents found",
-            subtitle: "Connect to your gateway and click + to add your first agent, or scan to discover existing ones.",
-            actionLabel: "Create Agent",
-            action: {
-                addMode = .create
-                showAddSheet = true
-            },
-            secondaryActionLabel: "Scan for Agents",
-            secondaryAction: {
-                addMode = .scan
-                showAddSheet = true
+        VStack(spacing: 16) {
+            Text("// NO_AGENTS_FOUND")
+                .font(Theme.headerFont)
+                .foregroundColor(Theme.neonCyan.opacity(0.7))
+                .padding(.top, 48)
+
+            Text("Connect to your gateway and add your first agent, or scan to discover existing ones.")
+                .font(Theme.terminalFont)
+                .foregroundColor(Theme.textMuted)
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: 400)
+
+            HStack(spacing: 12) {
+                Button {
+                    addMode = .create
+                    showAddSheet = true
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "plus")
+                        Text("CREATE_AGENT")
+                            .font(Theme.terminalFont)
+                    }
+                }
+                .buttonStyle(HQButtonStyle(variant: .glow))
+
+                Button {
+                    addMode = .scan
+                    showAddSheet = true
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "magnifyingglass")
+                        Text("SCAN_AGENTS")
+                            .font(Theme.terminalFont)
+                    }
+                }
+                .buttonStyle(HQButtonStyle(variant: .secondary))
             }
-        )
+            .padding(.bottom, 48)
+        }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .padding(48)
         .disabled(!gatewayService.isConnected)

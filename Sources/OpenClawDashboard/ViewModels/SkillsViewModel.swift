@@ -3,6 +3,22 @@ import Dispatch
 
 @MainActor
 final class SkillsViewModel: ObservableObject {
+    enum SyntheticState: String {
+        case none
+        case loading
+        case empty
+        case error
+
+        static func fromLaunchArguments() -> SyntheticState {
+            let prefix = "--nexus-synthetic-state="
+            guard let arg = ProcessInfo.processInfo.arguments.first(where: { $0.hasPrefix(prefix) }) else {
+                return .none
+            }
+            let value = String(arg.dropFirst(prefix.count)).lowercased()
+            return SyntheticState(rawValue: value) ?? .none
+        }
+    }
+
     @Published private(set) var skills: [SkillInfo] = []
     @Published private(set) var isLoading = false
     @Published var errorMessage: String?
@@ -13,9 +29,17 @@ final class SkillsViewModel: ObservableObject {
     private var watchSource: DispatchSourceFileSystemObject?
     private var watchFD: CInt = -1
     private let openclawExecutablePath: String?
+    private let syntheticState: SyntheticState
 
     init() {
         openclawExecutablePath = Self.resolveOpenClawExecutablePath()
+        syntheticState = SyntheticState.fromLaunchArguments()
+
+        guard syntheticState == .none else {
+            applySyntheticState(syntheticState)
+            return
+        }
+
         startPolling()
         startSkillsDirectoryWatch()
         refreshTask = Task { [weak self] in
@@ -34,6 +58,11 @@ final class SkillsViewModel: ObservableObject {
     }
 
     func refreshSkills() async {
+        if syntheticState != .none {
+            applySyntheticState(syntheticState)
+            return
+        }
+
         if isLoading { return }
         isLoading = true
         defer { isLoading = false }
@@ -72,6 +101,28 @@ final class SkillsViewModel: ObservableObject {
             errorMessage = nil
         } catch {
             errorMessage = "Failed to load skills: \(error.localizedDescription)"
+        }
+    }
+
+    private func applySyntheticState(_ state: SyntheticState) {
+        switch state {
+        case .none:
+            break
+        case .loading:
+            skills = []
+            errorMessage = nil
+            isLoading = true
+            lastUpdated = nil
+        case .empty:
+            skills = []
+            errorMessage = nil
+            isLoading = false
+            lastUpdated = Date()
+        case .error:
+            skills = []
+            errorMessage = "Synthetic Nexus error: failed to resolve skills registry (fixture)."
+            isLoading = false
+            lastUpdated = Date()
         }
     }
 

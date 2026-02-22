@@ -29,88 +29,98 @@ struct TaskEditSheet: View {
             VStack(spacing: 0) {
                 header
 
-                Divider().background(Theme.darkBorder)
+                Rectangle()
+                    .fill(Theme.neonCyan.opacity(0.2))
+                    .frame(height: 1)
 
                 ScrollView {
                     VStack(spacing: 16) {
-                        formSection(title: "Task Basics", subtitle: "Title and description for this task.") {
+                        terminalFormSection(title: "TASK_BASICS", subtitle: "title and description for this task") {
                             VStack(spacing: 12) {
-                                labeledField("Title") {
-                                    TextField("Task title", text: $title)
+                                labeledField("TITLE") {
+                                    TextField("TASK_TITLE", text: $title)
                                         .textFieldStyle(.plain)
-                                        .foregroundColor(.white)
+                                        .foregroundColor(Theme.textPrimary)
                                         .focused($focusedField, equals: .title)
-                                        .padding(10)
-                                        .background(inputBackground(isFocused: focusedField == .title))
-                                        .overlay(inputBorder(isFocused: focusedField == .title))
-                                        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                                        .cyberpunkInput(isFocused: focusedField == .title)
                                 }
 
-                                labeledField("Description") {
-                                    TextEditor(text: $description)
-                                        .font(.body)
-                                        .foregroundColor(.white)
-                                        .scrollContentBackground(.hidden)
-                                        .focused($focusedField, equals: .description)
-                                        .frame(minHeight: 120)
-                                        .padding(8)
-                                        .background(inputBackground(isFocused: focusedField == .description))
-                                        .overlay(inputBorder(isFocused: focusedField == .description))
-                                        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                                labeledField("DESCRIPTION") {
+                                    ZStack(alignment: .topLeading) {
+                                        TextEditor(text: $description)
+                                            .font(.system(.body, design: .monospaced))
+                                            .foregroundColor(Theme.textPrimary)
+                                            .scrollContentBackground(.hidden)
+                                            .focused($focusedField, equals: .description)
+                                            .frame(minHeight: 120)
+                                            .padding(8)
+                                            .background(Theme.darkBackground)
+                                    }
+                                    .background(Theme.darkBackground)
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 6)
+                                            .stroke(
+                                                focusedField == .description ? Theme.neonCyan.opacity(0.8) : Theme.darkBorder.opacity(0.5),
+                                                lineWidth: focusedField == .description ? 1.5 : 1
+                                            )
+                                            .shadow(color: focusedField == .description ? Theme.neonCyan.opacity(0.2) : .clear, radius: 6)
+                                    )
+                                    .clipShape(RoundedRectangle(cornerRadius: 6))
                                 }
                             }
                         }
 
-                        formSection(title: "Assignment", subtitle: "Who should handle this task?") {
-                            labeledField("Agent") {
+                        terminalFormSection(title: "ASSIGNMENT", subtitle: "who should handle this task") {
+                            labeledField("AGENT") {
                                 Picker("Agent", selection: $assignedAgent) {
-                                    Text("Unassigned").tag("")
+                                    Text("—UNASSIGNED—").tag("")
                                     ForEach(agentOptions.dropFirst(), id: \.self) { agent in
                                         HStack {
                                             Text(Theme.agentEmoji(for: agent))
-                                            Text(agent)
+                                            Text("@\(agent.lowercased())")
                                         }
                                         .tag(agent)
                                     }
                                 }
                                 .pickerStyle(.menu)
                                 .frame(maxWidth: .infinity, alignment: .leading)
-                                .padding(10)
-                                .background(inputBackground(isFocused: false))
-                                .overlay(inputBorder(isFocused: false))
-                                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                                .padding(8)
+                                .background(Theme.darkBackground)
+                                .overlay(RoundedRectangle(cornerRadius: 6).stroke(Theme.darkBorder.opacity(0.8), lineWidth: 1))
+                                .clipShape(RoundedRectangle(cornerRadius: 6))
                             }
                         }
 
-                        formSection(title: "Priority", subtitle: "Signal urgency and focus.") {
+                        terminalFormSection(title: "PRIORITY", subtitle: "signal urgency and focus") {
                             Picker("Priority", selection: $priority) {
                                 ForEach(TaskPriority.allCases, id: \.self) { p in
                                     HStack {
                                         Image(systemName: p.icon)
                                             .foregroundColor(p.color)
-                                        Text(p.label)
+                                        Text(p.label.uppercased())
                                     }
                                     .tag(p)
                                 }
                             }
                             .pickerStyle(.segmented)
-                            .tint(Theme.jarvisBlue)
+                            .tint(Theme.neonCyan)
                         }
 
-                        formSection(title: "Schedule", subtitle: "Optional time for the task.") {
+                        terminalFormSection(title: "SCHEDULE", subtitle: "optional time for the task") {
                             VStack(spacing: 10) {
-                                Toggle("Schedule", isOn: $hasSchedule)
+                                Toggle("ENABLE_SCHEDULE", isOn: $hasSchedule)
                                     .toggleStyle(.switch)
-                                    .tint(Theme.jarvisBlue)
-                                    .foregroundColor(.white)
+                                    .tint(Theme.neonCyan)
+                                    .font(Theme.terminalFont)
+                                    .foregroundColor(Theme.textSecondary)
                                 if hasSchedule {
                                     DatePicker("Date", selection: $scheduledFor, displayedComponents: [.date, .hourAndMinute])
                                         .datePickerStyle(.field)
                                         .labelsHidden()
-                                        .padding(10)
-                                        .background(inputBackground(isFocused: false))
-                                        .overlay(inputBorder(isFocused: false))
-                                        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                                        .padding(8)
+                                        .background(Theme.darkBackground)
+                                        .overlay(RoundedRectangle(cornerRadius: 6).stroke(Theme.darkBorder.opacity(0.8), lineWidth: 1))
+                                        .clipShape(RoundedRectangle(cornerRadius: 6))
                                 }
                             }
                         }
@@ -118,16 +128,18 @@ struct TaskEditSheet: View {
                     .padding(16)
                 }
 
-                Divider().background(Theme.darkBorder)
+                Rectangle()
+                    .fill(Theme.darkBorder.opacity(0.5))
+                    .frame(height: 1)
 
                 HStack {
-                    Button("Cancel") { dismiss() }
+                    Button("CANCEL") { dismiss() }
                         .keyboardShortcut(.cancelAction)
                         .buttonStyle(HQButtonStyle(variant: .secondary))
 
                     Spacer()
 
-                    Button(isEditing ? "Save" : "Create") {
+                    Button(isEditing ? "WRITE_CHANGES" : "CREATE_TASK") {
                         onSave(
                             title,
                             description.isEmpty ? nil : description,
@@ -139,7 +151,7 @@ struct TaskEditSheet: View {
                     }
                     .keyboardShortcut(.defaultAction)
                     .disabled(title.isEmpty)
-                    .buttonStyle(HQButtonStyle(variant: .primary))
+                    .buttonStyle(HQButtonStyle(variant: .glow))
                 }
                 .padding(16)
             }
@@ -161,10 +173,8 @@ struct TaskEditSheet: View {
 
     private var header: some View {
         HStack {
-            Text(isEditing ? "Edit Task" : "New Task")
-                .font(.title3)
-                .fontWeight(.bold)
-                .foregroundColor(.white)
+            Text(isEditing ? "// EDIT_TASK" : "// NEW_TASK")
+                .terminalLabel()
             Spacer()
             Button { dismiss() } label: {
                 Image(systemName: "xmark.circle.fill")
@@ -174,16 +184,16 @@ struct TaskEditSheet: View {
             .buttonStyle(.plain)
         }
         .padding(16)
+        .background(Theme.darkSurface)
     }
 
-    private func formSection<Content: View>(title: String, subtitle: String, @ViewBuilder content: () -> Content) -> some View {
+    private func terminalFormSection<Content: View>(title: String, subtitle: String, @ViewBuilder content: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             VStack(alignment: .leading, spacing: 4) {
-                Text(title)
-                    .font(.headline)
-                    .foregroundColor(.white)
+                Text("// \(title)")
+                    .terminalLabel()
                 Text(subtitle)
-                    .font(.caption)
+                    .font(Theme.terminalFontSM)
                     .foregroundColor(Theme.textMuted)
             }
 
@@ -191,11 +201,11 @@ struct TaskEditSheet: View {
         }
         .padding(14)
         .background(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
                 .fill(Theme.darkSurface.opacity(0.75))
                 .overlay(
-                    RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .stroke(Theme.darkBorder.opacity(0.7), lineWidth: 1)
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .stroke(Theme.darkBorder.opacity(0.5), lineWidth: 1)
                 )
         )
     }
@@ -203,19 +213,10 @@ struct TaskEditSheet: View {
     private func labeledField<Content: View>(_ label: String, @ViewBuilder content: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(label)
-                .font(.caption)
+                .font(Theme.terminalFontSM)
                 .foregroundColor(Theme.textMuted)
+                .tracking(1.2)
             content()
         }
-    }
-
-    private func inputBackground(isFocused: Bool) -> Color {
-        isFocused ? Theme.darkBackground.opacity(0.9) : Theme.darkBackground
-    }
-
-    private func inputBorder(isFocused: Bool) -> some View {
-        RoundedRectangle(cornerRadius: 10, style: .continuous)
-            .stroke(isFocused ? Theme.neonCyan.opacity(0.9) : Theme.darkBorder.opacity(0.8), lineWidth: isFocused ? 1.5 : 1)
-            .shadow(color: isFocused ? Theme.neonCyan.opacity(0.25) : .clear, radius: 6, x: 0, y: 0)
     }
 }

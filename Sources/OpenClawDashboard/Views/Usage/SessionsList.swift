@@ -5,31 +5,33 @@ struct SessionsList: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // Header
+            // Header row with .terminalLabel()
             HStack {
-                Text("Agent")
+                Text("AGENT")
+                    .terminalLabel()
                     .frame(width: 100, alignment: .leading)
-                Text("Model")
+                Text("MODEL")
+                    .terminalLabel()
                     .frame(width: 200, alignment: .leading)
-                Text("Tokens")
+                Text("TOKENS")
+                    .terminalLabel()
                     .frame(width: 100, alignment: .trailing)
-                Text("Date")
+                Text("DATE")
+                    .terminalLabel()
                     .frame(width: 120, alignment: .trailing)
                 Spacer()
             }
-            .font(.caption)
-            .fontWeight(.semibold)
-            .foregroundColor(Theme.textMuted)
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
 
-            Divider().background(Theme.darkBorder)
+            Rectangle()
+                .fill(Theme.neonCyan.opacity(0.2))
+                .frame(height: 1)
 
             ScrollView {
                 LazyVStack(spacing: 0) {
-                    ForEach(sessions.prefix(50)) { session in
-                        sessionRow(session)
-                        Divider().background(Theme.darkBorder.opacity(0.3))
+                    ForEach(Array(sessions.prefix(50).enumerated()), id: \.offset) { index, session in
+                        sessionRow(session, isEven: index % 2 == 0)
                     }
                 }
             }
@@ -37,42 +39,41 @@ struct SessionsList: View {
         }
     }
 
-    private func sessionRow(_ session: Session) -> some View {
-        HStack {
-            // Agent
+    private func sessionRow(_ session: Session, isEven: Bool) -> some View {
+        let name = session.agentId == "main" ? "Jarvis" : (session.agentId?.capitalized ?? "—")
+        return HStack {
+            // Agent "@name" in brand color
             HStack(spacing: 6) {
-                let name = session.agentId == "main" ? "Jarvis" : (session.agentId?.capitalized ?? "—")
-                AgentAvatarSmall(agentName: name, size: 20)
-                Text(name)
-                    .font(.caption)
+                AgentAvatarSmall(agentName: name, size: 18)
+                Text("@\(name.lowercased())")
+                    .font(.system(.caption2, design: .monospaced))
                     .foregroundColor(Theme.agentColor(for: name))
             }
             .frame(width: 100, alignment: .leading)
 
             // Model
             Text(session.model ?? "—")
-                .font(.caption)
+                .font(Theme.terminalFontSM)
                 .foregroundColor(Theme.textSecondary)
                 .lineLimit(1)
                 .frame(width: 200, alignment: .leading)
 
             // Tokens
             Text(session.totalTokens.compactTokens)
-                .font(.caption)
-                .fontWeight(.medium)
-                .foregroundColor(.white)
+                .font(.system(.caption2, design: .monospaced).weight(.medium))
+                .foregroundColor(Theme.textPrimary)
                 .frame(width: 100, alignment: .trailing)
 
-            // Date
+            // Date in textMetadata
             Text(session.updatedAt?.relativeString ?? "—")
-                .font(.caption)
-                .foregroundColor(Theme.textMuted)
+                .font(Theme.terminalFontSM)
+                .foregroundColor(Theme.textMetadata)
                 .frame(width: 120, alignment: .trailing)
 
             Spacer()
         }
         .padding(.horizontal, 12)
-        .padding(.vertical, 8)
-        .background(Theme.darkSurface)
+        .padding(.vertical, 7)
+        .background(isEven ? Theme.darkSurface : Theme.neonCyan.opacity(0.02))
     }
 }

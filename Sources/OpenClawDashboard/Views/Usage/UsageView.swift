@@ -12,21 +12,17 @@ struct UsageView: View {
                 controlsBar
 
                 VStack(spacing: 24) {
-                    // Summary cards
                     summaryCards
 
-                    // Charts
                     HStack(spacing: 20) {
                         tokensByAgentChart
                         costByModelChart
                     }
                     .frame(height: 300)
 
-                    // Time series
                     timeSeriesChart
                         .frame(height: 250)
 
-                    // Sessions list
                     sessionsSection
                 }
                 .padding(24)
@@ -38,30 +34,69 @@ struct UsageView: View {
         }
     }
 
+    // MARK: - Controls Bar (terminal tab strip with neon underline active)
+
     private var controlsBar: some View {
-        HStack(spacing: 12) {
-            Picker("Range", selection: $usageVM.dateRange) {
+        HStack(spacing: 0) {
+            // "[ USAGE_MATRIX ]" header
+            HStack(spacing: 4) {
+                Text("[")
+                    .font(.system(.headline, design: .monospaced).weight(.bold))
+                    .foregroundColor(Theme.neonCyan.opacity(0.6))
+                Text("USAGE_MATRIX")
+                    .font(Theme.headerFont)
+                    .foregroundColor(Theme.neonCyan)
+                Text("]")
+                    .font(.system(.headline, design: .monospaced).weight(.bold))
+                    .foregroundColor(Theme.neonCyan.opacity(0.6))
+            }
+            .padding(.leading, 24)
+            .padding(.trailing, 16)
+
+            // Terminal tab strip with neon underline active
+            HStack(spacing: 0) {
                 ForEach(DateRange.allCases, id: \.self) { range in
-                    Text(range.label).tag(range)
+                    let isActive = usageVM.dateRange == range
+                    Button {
+                        usageVM.dateRange = range
+                        Task { await usageVM.fetchUsageData() }
+                    } label: {
+                        Text(range.label.uppercased())
+                            .font(Theme.terminalFontSM)
+                            .foregroundColor(isActive ? Theme.neonCyan : Theme.textMuted)
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 8)
+                            .overlay(alignment: .bottom) {
+                                if isActive {
+                                    Rectangle()
+                                        .fill(Theme.neonCyan)
+                                        .frame(height: 2)
+                                }
+                            }
+                    }
+                    .buttonStyle(.plain)
                 }
             }
-            .pickerStyle(.segmented)
-            .frame(width: 240)
-            .onChange(of: usageVM.dateRange) { _, _ in
-                Task { await usageVM.fetchUsageData() }
+            .background(Theme.darkSurface.opacity(0.5))
+            .overlay(alignment: .bottom) {
+                Rectangle().fill(Theme.darkBorder.opacity(0.4)).frame(height: 1)
             }
+
+            Spacer()
 
             Button {
                 Task { await usageVM.fetchUsageData() }
             } label: {
-                Label("Refresh", systemImage: "arrow.clockwise")
+                Label("REFRESH", systemImage: "arrow.clockwise")
             }
-            .buttonStyle(.bordered)
-
-            Spacer()
+            .buttonStyle(HQButtonStyle(variant: .secondary))
+            .padding(.trailing, 24)
         }
-        .padding(.horizontal, 24)
         .padding(.vertical, 10)
+        .background(Theme.darkSurface.opacity(0.4))
+        .overlay(alignment: .bottom) {
+            Rectangle().fill(Theme.neonCyan.opacity(0.15)).frame(height: 1)
+        }
     }
 
     // MARK: - Summary Cards
@@ -69,25 +104,25 @@ struct UsageView: View {
     private var summaryCards: some View {
         HStack(spacing: 16) {
             summaryCard(
-                title: "Total Tokens",
+                title: "TOTAL_TOKENS",
                 value: usageVM.usageData?.totalTokens.compactTokens ?? "—",
                 icon: "number",
-                color: Theme.jarvisBlue
+                color: Theme.neonCyan
             )
             summaryCard(
-                title: "Total Cost",
+                title: "TOTAL_COST",
                 value: usageVM.usageData?.totalCost.formattedCost ?? "—",
                 icon: "dollarsign.circle",
                 color: Theme.statusOnline
             )
             summaryCard(
-                title: "Sessions",
+                title: "SESSIONS",
                 value: "\(usageVM.usageData?.sessionCount ?? 0)",
                 icon: "bubble.left.and.bubble.right",
                 color: Theme.scopePurple
             )
             summaryCard(
-                title: "Active Agents",
+                title: "ACTIVE_AGENTS",
                 value: "\(usageVM.usageData?.byAgent.count ?? 0)",
                 icon: "cpu",
                 color: Theme.atlasAmber
@@ -96,99 +131,66 @@ struct UsageView: View {
     }
 
     private func summaryCard(title: String, value: String, icon: String, color: Color) -> some View {
-        VStack(spacing: 8) {
-            Image(systemName: icon)
-                .font(.title2)
-                .foregroundColor(color)
-            Text(value)
-                .font(.title)
-                .fontWeight(.bold)
-                .foregroundColor(.white)
-            Text(title)
-                .font(.caption)
-                .foregroundColor(Theme.textSecondary)
+        NeonBorderPanel(color: color, cornerRadius: 12, surface: Theme.darkSurface, lineWidth: 1) {
+            VStack(spacing: 8) {
+                Image(systemName: icon)
+                    .font(.title2)
+                    .foregroundColor(color)
+                Text(value)
+                    .font(.system(.title, design: .monospaced).weight(.bold))
+                    .foregroundColor(Theme.textPrimary)
+                Text(title)
+                    .terminalLabel(color: Theme.textMuted)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(16)
         }
-        .frame(maxWidth: .infinity)
-        .padding(16)
-        .background(Theme.darkSurface)
-        .cornerRadius(12)
     }
 
     // MARK: - Token Chart
 
     private var tokensByAgentChart: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Tokens by Agent")
-                .font(.headline)
-                .foregroundColor(.white)
+            Text("// TOKENS_BY_AGENT")
+                .terminalLabel()
 
             if let byAgent = usageVM.usageData?.byAgent, !byAgent.isEmpty {
-                Chart(byAgent) { usage in
-                    BarMark(
-                        x: .value("Agent", usage.agentName),
-                        y: .value("Tokens", usage.totalTokens)
-                    )
-                    .foregroundStyle(Theme.agentColor(for: usage.agentName))
-                    .cornerRadius(6)
-                }
-                .chartXAxis {
-                    AxisMarks { _ in
-                        AxisValueLabel()
-                            .foregroundStyle(Theme.textSecondary)
-                    }
-                }
-                .chartYAxis {
-                    AxisMarks { _ in
-                        AxisGridLine()
-                            .foregroundStyle(Theme.darkBorder.opacity(0.7))
-                        AxisValueLabel()
-                            .foregroundStyle(Theme.textSecondary)
-                    }
-                }
+                TokenChart(data: byAgent)
             } else {
                 emptyChart(message: "No token data available")
             }
         }
         .padding(16)
         .background(Theme.darkSurface)
-        .cornerRadius(12)
+        .overlay(RoundedRectangle(cornerRadius: 12).stroke(Theme.darkBorder, lineWidth: 1))
+        .clipShape(RoundedRectangle(cornerRadius: 12))
     }
 
     // MARK: - Cost Chart
 
     private var costByModelChart: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Usage by Model")
-                .font(.headline)
-                .foregroundColor(.white)
+            Text("// USAGE_BY_MODEL")
+                .terminalLabel()
 
             if let byModel = usageVM.usageData?.byModel, !byModel.isEmpty {
-                Chart(byModel) { usage in
-                    SectorMark(
-                        angle: .value("Tokens", usage.tokens),
-                        innerRadius: .ratio(0.5),
-                        angularInset: 2.0
-                    )
-                    .foregroundStyle(by: .value("Model", usage.model.truncated(to: 20)))
-                    .cornerRadius(4)
-                }
-                .chartLegend(position: .bottom, alignment: .center, spacing: 8)
+                CostChart(data: byModel)
             } else {
                 emptyChart(message: "No model data available")
             }
         }
         .padding(16)
         .background(Theme.darkSurface)
-        .cornerRadius(12)
+        .overlay(RoundedRectangle(cornerRadius: 12).stroke(Theme.darkBorder, lineWidth: 1))
+        .clipShape(RoundedRectangle(cornerRadius: 12))
     }
 
     // MARK: - Time Series
 
     private var timeSeriesChart: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Token Usage Over Time")
-                .font(.headline)
-                .foregroundColor(.white)
+            Text("// TOKEN_USAGE_OVER_TIME")
+                .terminalLabel()
 
             if let timeSeries = usageVM.usageData?.timeSeries, !timeSeries.isEmpty {
                 Chart(timeSeries) { point in
@@ -198,7 +200,7 @@ struct UsageView: View {
                     )
                     .foregroundStyle(
                         LinearGradient(
-                            colors: [Theme.jarvisBlue.opacity(0.4), Theme.jarvisBlue.opacity(0.05)],
+                            colors: [Theme.neonCyan.opacity(0.35), Theme.neonCyan.opacity(0.04)],
                             startPoint: .top,
                             endPoint: .bottom
                         )
@@ -208,23 +210,25 @@ struct UsageView: View {
                         x: .value("Date", point.date),
                         y: .value("Tokens", point.tokens)
                     )
-                    .foregroundStyle(Theme.jarvisBlue)
+                    .foregroundStyle(Theme.neonCyan)
                     .lineStyle(StrokeStyle(lineWidth: 2))
                 }
                 .chartXAxis {
                     AxisMarks { _ in
                         AxisGridLine()
-                            .foregroundStyle(Theme.darkBorder.opacity(0.5))
+                            .foregroundStyle(Theme.gridLineColor)
                         AxisValueLabel()
-                            .foregroundStyle(Theme.textSecondary)
+                            .font(.system(.caption2, design: .monospaced))
+                            .foregroundStyle(Theme.textMuted)
                     }
                 }
                 .chartYAxis {
                     AxisMarks { _ in
                         AxisGridLine()
-                            .foregroundStyle(Theme.darkBorder.opacity(0.5))
+                            .foregroundStyle(Theme.gridLineColor)
                         AxisValueLabel()
-                            .foregroundStyle(Theme.textSecondary)
+                            .font(.system(.caption2, design: .monospaced))
+                            .foregroundStyle(Theme.textMuted)
                     }
                 }
             } else {
@@ -233,16 +237,16 @@ struct UsageView: View {
         }
         .padding(16)
         .background(Theme.darkSurface)
-        .cornerRadius(12)
+        .overlay(RoundedRectangle(cornerRadius: 12).stroke(Theme.darkBorder, lineWidth: 1))
+        .clipShape(RoundedRectangle(cornerRadius: 12))
     }
 
     // MARK: - Sessions
 
     private var sessionsSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Recent Sessions")
-                .font(.headline)
-                .foregroundColor(.white)
+            Text("// RECENT_SESSIONS")
+                .terminalLabel()
 
             if !usageVM.sessions.isEmpty {
                 SessionsList(sessions: usageVM.sessions)
@@ -261,7 +265,8 @@ struct UsageView: View {
         }
         .padding(16)
         .background(Theme.darkSurface)
-        .cornerRadius(12)
+        .overlay(RoundedRectangle(cornerRadius: 12).stroke(Theme.darkBorder, lineWidth: 1))
+        .clipShape(RoundedRectangle(cornerRadius: 12))
     }
 
     private func emptyChart(message: String) -> some View {

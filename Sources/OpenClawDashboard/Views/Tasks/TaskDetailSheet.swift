@@ -7,10 +7,10 @@ struct TaskDetailSheet: View {
     var body: some View {
         HQModalChrome {
             VStack(alignment: .leading, spacing: 14) {
+                // Header
                 HStack {
-                    Text("Task Details")
-                        .font(.title3.bold())
-                        .foregroundColor(.white)
+                    Text("// TASK_DETAIL")
+                        .terminalLabel()
                     Spacer()
                     Button {
                         dismiss()
@@ -21,60 +21,60 @@ struct TaskDetailSheet: View {
                     .buttonStyle(.plain)
                 }
 
-                detailRow("Title", task.title)
-                detailRow("Status", task.status.columnTitle)
-                detailRow("Priority", task.priority.label)
-                detailRow("Agent", task.assignedAgent ?? "Unassigned")
-                detailRow("Project", task.projectName ?? "None")
-                detailRow("Created", task.createdAt.shortString)
-                detailRow("Updated", task.updatedAt.shortString)
+                sectionDivider("METADATA")
+
+                detailRow("TITLE", task.title)
+                detailRow("STATUS", task.status.columnTitle.uppercased())
+                detailRow("PRIORITY", task.priority.label.uppercased())
+                detailRow("AGENT", task.assignedAgent.map { "@\($0.lowercased())" } ?? "—UNASSIGNED—")
+                detailRow("PROJECT", task.projectName ?? "—NONE—")
+                detailRow("CREATED", task.createdAt.shortString)
+                detailRow("UPDATED", task.updatedAt.shortString)
+
                 if let scheduled = task.scheduledFor {
-                    detailRow("Scheduled", scheduled.shortString)
+                    detailRow("SCHEDULED", scheduled.shortString)
                 }
                 if let completed = task.completedAt {
-                    detailRow("Completed", completed.shortString)
+                    detailRow("COMPLETED", completed.shortString)
                 }
                 if let evidenceAt = task.lastEvidenceAt {
-                    detailRow("Last Activity", evidenceAt.shortString)
+                    detailRow("LAST_ACTIVITY", evidenceAt.shortString)
                 }
                 if let sessionKey = task.executionSessionKey, !sessionKey.isEmpty {
-                    detailRow("Session Key", sessionKey)
+                    detailRow("SESSION_KEY", sessionKey)
                 }
 
                 if let desc = task.description, !desc.isEmpty {
+                    sectionDivider("DESCRIPTION")
                     VStack(alignment: .leading, spacing: 6) {
-                        Text("Description")
-                            .font(.caption)
-                            .foregroundColor(Theme.textMuted)
                         ScrollView {
                             Text(desc)
-                                .foregroundColor(.white)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                        }
-                        .frame(maxHeight: 180)
-                        .padding(10)
-                        .background(Theme.darkSurface)
-                        .overlay(RoundedRectangle(cornerRadius: 10).stroke(Theme.darkBorder, lineWidth: 1))
-                        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-                    }
-                }
-
-                if let evidence = task.lastEvidence, !evidence.isEmpty {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text("Execution Evidence")
-                            .font(.caption)
-                            .foregroundColor(Theme.neonCyan.opacity(0.95))
-                        ScrollView {
-                            Text(evidence)
-                                .font(.system(.caption, design: .monospaced))
+                                .font(.system(.body, design: .monospaced))
                                 .foregroundColor(Theme.textSecondary)
                                 .frame(maxWidth: .infinity, alignment: .leading)
                         }
                         .frame(maxHeight: 180)
                         .padding(10)
                         .background(Theme.darkSurface)
-                        .overlay(RoundedRectangle(cornerRadius: 10).stroke(Theme.darkBorder, lineWidth: 1))
-                        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                        .overlay(RoundedRectangle(cornerRadius: 8).stroke(Theme.darkBorder, lineWidth: 1))
+                        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    }
+                }
+
+                if let evidence = task.lastEvidence, !evidence.isEmpty {
+                    sectionDivider("EXECUTION_EVIDENCE")
+                    VStack(alignment: .leading, spacing: 6) {
+                        ScrollView {
+                            Text(evidence)
+                                .font(Theme.terminalFontSM)
+                                .foregroundColor(Theme.neonCyan.opacity(0.9))
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                        .frame(maxHeight: 180)
+                        .padding(10)
+                        .background(Theme.darkSurface)
+                        .overlay(RoundedRectangle(cornerRadius: 8).stroke(Theme.neonCyan.opacity(0.25), lineWidth: 1))
+                        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
                     }
                 }
 
@@ -85,14 +85,29 @@ struct TaskDetailSheet: View {
         }
     }
 
+    private func sectionDivider(_ label: String) -> some View {
+        HStack(spacing: 8) {
+            Text("──")
+                .font(.system(.caption2, design: .monospaced))
+                .foregroundColor(Theme.darkBorder)
+            Text(label)
+                .font(Theme.terminalFontSM)
+                .foregroundColor(Theme.textMuted)
+                .tracking(1.2)
+            Rectangle()
+                .fill(Theme.darkBorder.opacity(0.5))
+                .frame(height: 1)
+        }
+    }
+
     private func detailRow(_ label: String, _ value: String) -> some View {
         HStack(alignment: .top, spacing: 10) {
             Text(label)
-                .font(.caption)
-                .foregroundColor(Theme.textMuted)
-                .frame(width: 90, alignment: .leading)
+                .terminalLabel(color: Theme.textMuted)
+                .frame(width: 110, alignment: .leading)
             Text(value)
-                .foregroundColor(.white)
+                .font(.system(.caption, design: .monospaced))
+                .foregroundColor(Theme.textPrimary)
             Spacer()
         }
     }

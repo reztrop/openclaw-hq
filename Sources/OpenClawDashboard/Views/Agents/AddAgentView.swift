@@ -25,29 +25,50 @@ struct AddAgentView: View {
             VStack(spacing: 0) {
                 // Header
                 HStack {
-                    Text("Add Agent")
-                        .font(.title2)
-                        .fontWeight(.bold)
-                        .foregroundColor(.white)
+                    Text("// ADD_UNIT")
+                        .font(Theme.headerFont)
+                        .foregroundColor(Theme.neonCyan)
+                        .shadow(color: Theme.neonCyan.opacity(0.5), radius: 6, x: 0, y: 0)
                     Spacer()
-                    Button("Done") { dismiss() }
-                        .buttonStyle(.plain)
-                        .foregroundColor(Theme.textMuted)
+                    Button {
+                        dismiss()
+                    } label: {
+                        Text("CLOSE")
+                            .font(Theme.terminalFont)
+                            .foregroundColor(Theme.textMuted)
+                    }
+                    .buttonStyle(.plain)
                 }
-                .padding(24)
-                .background(Theme.darkSurface)
-
-                // Mode picker
-                Picker("Mode", selection: $mode) {
-                    Text("Create New").tag(AddAgentMode.create)
-                    Text("Scan for Missing").tag(AddAgentMode.scan)
-                }
-                .pickerStyle(.segmented)
                 .padding(.horizontal, 24)
                 .padding(.vertical, 16)
                 .background(Theme.darkSurface)
 
-                Divider().opacity(0.3)
+                // Neon divider
+                Rectangle()
+                    .fill(
+                        LinearGradient(
+                            colors: [Theme.neonCyan.opacity(0.6), Theme.neonCyan.opacity(0.2), Theme.neonCyan.opacity(0.6)],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
+                    )
+                    .frame(height: 1)
+                    .shadow(color: Theme.neonCyan.opacity(0.4), radius: 4, x: 0, y: 0)
+
+                // Mode tab strip
+                HStack(spacing: 0) {
+                    modeTabButton(title: "CREATE_NEW", targetMode: .create)
+                    modeTabButton(title: "SCAN_FOR_MISSING", targetMode: .scan)
+                    Spacer()
+                }
+                .padding(.horizontal, 24)
+                .padding(.top, 8)
+                .background(Theme.darkSurface)
+
+                // Bottom divider under tabs
+                Rectangle()
+                    .fill(Theme.darkBorder.opacity(0.5))
+                    .frame(height: 1)
 
                 // Content
                 if mode == .create {
@@ -64,9 +85,42 @@ struct AddAgentView: View {
         }
         .preferredColorScheme(.dark)
     }
+
+    @ViewBuilder
+    private func modeTabButton(title: String, targetMode: AddAgentMode) -> some View {
+        let isActive = mode == targetMode
+        Button {
+            mode = targetMode
+        } label: {
+            VStack(spacing: 0) {
+                Text(title)
+                    .font(Theme.terminalFont)
+                    .foregroundColor(isActive ? Theme.neonCyan : Theme.textMuted)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 8)
+                    .shadow(color: isActive ? Theme.neonCyan.opacity(0.6) : .clear, radius: 4, x: 0, y: 0)
+
+                Rectangle()
+                    .fill(isActive ? Theme.neonCyan : Color.clear)
+                    .frame(height: 2)
+                    .shadow(color: isActive ? Theme.neonCyan.opacity(0.8) : .clear, radius: 4, x: 0, y: 0)
+            }
+        }
+        .buttonStyle(.plain)
+        .animation(.easeOut(duration: 0.15), value: mode)
+    }
 }
 
 // MARK: - Create Agent Form
+
+// Focus field enum for cyberpunk input styling
+private enum FormField: Hashable {
+    case name
+    case emoji
+    case identity
+    case soul
+}
+
 struct CreateAgentForm: View {
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject var agentsVM: AgentsViewModel
@@ -86,6 +140,9 @@ struct CreateAgentForm: View {
     @State private var modelAutoSuggested = true
     @State private var suppressModelChangeTracking = false
     @FocusState private var isEmojiFieldFocused: Bool
+    @FocusState private var focusedField: FormField?
+    @State private var isIdentityFocused = false
+    @State private var isSoulFocused = false
 
     private let commonEmojis = ["🤖", "🧠", "🔍", "🧩", "📐", "🗺️", "⚡", "🎯", "🚀", "💡", "🔮", "🌟", "🦊", "🐉", "🦁"]
 
@@ -97,176 +154,262 @@ struct CreateAgentForm: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
+            VStack(alignment: .leading, spacing: 24) {
 
-                // Name + Emoji
-                HStack(spacing: 12) {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("Name *").font(.caption).foregroundColor(Theme.textMuted)
-                        TextField("e.g. Scout", text: $agentName)
-                            .textFieldStyle(.roundedBorder)
-                    }
+                // MARK: // IDENTITY Section
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("// IDENTITY")
+                        .terminalLabel(color: Theme.neonCyan)
 
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("Emoji").font(.caption).foregroundColor(Theme.textMuted)
-                        TextField("🤖", text: $agentEmoji)
-                            .textFieldStyle(.roundedBorder)
-                            .frame(width: 60)
-                            .focused($isEmojiFieldFocused)
-                    }
-                }
-
-                // Emoji quick pick
-                LazyVGrid(columns: Array(repeating: .init(.fixed(36)), count: 15), spacing: 4) {
-                    ForEach(commonEmojis, id: \.self) { e in
-                        Button(e) { agentEmoji = e }
-                            .font(.title3)
-                            .frame(width: 32, height: 32)
-                            .background(agentEmoji == e ? Theme.jarvisBlue.opacity(0.3) : Color.clear)
-                            .clipShape(RoundedRectangle(cornerRadius: 6))
-                            .buttonStyle(.plain)
-                    }
-                    Button {
-                        isEmojiFieldFocused = true
-                        DispatchQueue.main.async {
-                            NSApp.orderFrontCharacterPalette(nil)
+                    // Name + Emoji row
+                    HStack(spacing: 16) {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("NAME *")
+                                .terminalLabel()
+                            TextField("e.g. Scout", text: $agentName)
+                                .focused($focusedField, equals: .name)
+                                .cyberpunkInput(isFocused: focusedField == .name)
                         }
-                    } label: {
-                        Image(systemName: "face.smiling")
-                            .font(.subheadline.weight(.semibold))
-                            .frame(width: 32, height: 32)
+
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("EMOJI")
+                                .terminalLabel()
+                            TextField("🤖", text: $agentEmoji)
+                                .focused($isEmojiFieldFocused)
+                                .cyberpunkInput(isFocused: isEmojiFieldFocused)
+                                .frame(width: 70)
+                        }
                     }
-                    .background(Theme.darkSurface)
-                    .clipShape(RoundedRectangle(cornerRadius: 6))
-                    .buttonStyle(.plain)
-                    .help("Open full emoji picker")
+
+                    // Emoji quick pick
+                    LazyVGrid(columns: Array(repeating: .init(.fixed(36)), count: 15), spacing: 4) {
+                        ForEach(commonEmojis, id: \.self) { e in
+                            Button(e) { agentEmoji = e }
+                                .font(.title3)
+                                .frame(width: 32, height: 32)
+                                .background(agentEmoji == e ? Theme.neonCyan.opacity(0.2) : Color.clear)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                        .stroke(agentEmoji == e ? Theme.neonCyan.opacity(0.5) : Color.clear, lineWidth: 1)
+                                )
+                                .clipShape(RoundedRectangle(cornerRadius: 6))
+                                .buttonStyle(.plain)
+                        }
+                        Button {
+                            isEmojiFieldFocused = true
+                            DispatchQueue.main.async {
+                                NSApp.orderFrontCharacterPalette(nil)
+                            }
+                        } label: {
+                            Image(systemName: "face.smiling")
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundColor(Theme.textMuted)
+                                .frame(width: 32, height: 32)
+                        }
+                        .background(Theme.darkSurface)
+                        .clipShape(RoundedRectangle(cornerRadius: 6))
+                        .buttonStyle(.plain)
+                        .help("Open full emoji picker")
+                    }
+
+                    // Workspace (read-only preview)
+                    if !normalizedId.isEmpty {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("WORKSPACE")
+                                .terminalLabel()
+                            Text("~/.openclaw/workspace/agents/\(normalizedId)")
+                                .font(Theme.terminalFontSM)
+                                .foregroundColor(Theme.textMuted)
+                                .padding(8)
+                                .background(Theme.darkSurface)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                        .stroke(Theme.darkBorder.opacity(0.5), lineWidth: 1)
+                                )
+                                .clipShape(RoundedRectangle(cornerRadius: 6))
+                        }
+                    }
                 }
 
-                // Workspace (read-only preview)
-                if !normalizedId.isEmpty {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("Workspace").font(.caption).foregroundColor(Theme.textMuted)
-                        Text("~/.openclaw/workspace/agents/\(normalizedId)")
-                            .font(.system(.caption, design: .monospaced))
-                            .foregroundColor(Theme.textMuted)
-                            .padding(6)
-                            .background(Theme.darkSurface)
-                            .clipShape(RoundedRectangle(cornerRadius: 6))
-                    }
-                }
+                // MARK: Model picker
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("// MODEL")
+                        .terminalLabel(color: Theme.neonCyan)
 
-                // Model picker
-                VStack(alignment: .leading, spacing: 4) {
                     ModelPickerView(agentId: "", selectedModelId: $selectedModelId)
                         .environmentObject(agentsVM)
                         .environmentObject(gatewayService)
+
                     if !agentName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                        Text("Recommended: \(agentsVM.recommendedDefaultModelId(agentName: agentName, identityHint: identityContent))")
-                            .font(.caption2)
-                            .foregroundColor(Theme.textMuted)
+                        Text("RECOMMENDED: \(agentsVM.recommendedDefaultModelId(agentName: agentName, identityHint: identityContent))")
+                            .terminalLabel()
                     }
                 }
 
-                Toggle(isOn: $canCommunicateWithAgents) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Allow Agent-to-Agent Collaboration")
-                            .foregroundColor(.white)
-                        Text("When enabled, this agent may coordinate with other agents via Jarvis.")
+                // MARK: // CONFIG Section
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("// CONFIG")
+                        .terminalLabel(color: Theme.neonCyan)
+
+                    Toggle(isOn: $canCommunicateWithAgents) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Allow Agent-to-Agent Collaboration")
+                                .foregroundColor(.white)
+                                .font(.system(.body, design: .monospaced))
+                            Text("When enabled, this agent may coordinate with other agents via Jarvis.")
+                                .font(Theme.terminalFontSM)
+                                .foregroundColor(Theme.textMuted)
+                        }
+                    }
+                    .toggleStyle(.switch)
+
+                    Toggle(isOn: $bootOnStart) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Boot on Start")
+                                .foregroundColor(.white)
+                                .font(.system(.body, design: .monospaced))
+                            Text("When enabled, Jarvis immediately boots and verifies this agent after creation so it can start working right away.")
+                                .font(Theme.terminalFontSM)
+                                .foregroundColor(Theme.textMuted)
+                        }
+                    }
+                    .toggleStyle(.switch)
+
+                    // Workspace files hint
+                    HStack(spacing: 8) {
+                        Image(systemName: "info.circle")
                             .font(.caption)
+                            .foregroundColor(Theme.neonCyan)
+                        Text("Creating an agent writes IDENTITY.md, USER.md, SOUL.md, BOOTSTRAP.md, AGENTS.md, TOOLS.md, MEMORY.md, and HEARTBEAT.md to the workspace automatically.")
+                            .font(Theme.terminalFontSM)
                             .foregroundColor(Theme.textMuted)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
+                    .padding(10)
+                    .background(Theme.neonCyan.opacity(0.06))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            .stroke(Theme.neonCyan.opacity(0.2), lineWidth: 1)
+                    )
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
                 }
-                .toggleStyle(.switch)
 
-                Toggle(isOn: $bootOnStart) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Boot on Start")
+                // MARK: // PERSONALITY Section
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("// PERSONALITY")
+                        .terminalLabel(color: Theme.neonCyan)
+
+                    // Identity / Role
+                    VStack(alignment: .leading, spacing: 6) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("ROLE & IDENTITY")
+                                .terminalLabel()
+                            Text("What this agent is and does — written to IDENTITY.md")
+                                .font(Theme.terminalFontSM)
+                                .foregroundColor(Theme.textMuted.opacity(0.7))
+                        }
+                        TextEditor(text: $identityContent)
+                            .font(.system(.body, design: .monospaced))
                             .foregroundColor(.white)
-                        Text("When enabled, Jarvis immediately boots and verifies this agent after creation so it can start working right away.")
-                            .font(.caption)
-                            .foregroundColor(Theme.textMuted)
+                            .scrollContentBackground(.hidden)
+                            .background(Theme.darkBackground)
+                            .clipShape(RoundedRectangle(cornerRadius: 8))
+                            .frame(minHeight: 80, maxHeight: 140)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                    .stroke(
+                                        isIdentityFocused ? Theme.neonCyan.opacity(0.7) : Theme.darkBorder.opacity(0.4),
+                                        lineWidth: isIdentityFocused ? 2 : 1
+                                    )
+                            )
+                            .shadow(color: isIdentityFocused ? Theme.neonCyan.opacity(0.2) : .clear, radius: 6, x: 0, y: 0)
+                            .onTapGesture { isIdentityFocused = true }
+                    }
+
+                    // Soul / Personality
+                    VStack(alignment: .leading, spacing: 6) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("PERSONALITY & BEHAVIOR")
+                                .terminalLabel()
+                            Text("Core values, operating style, how it should behave — written to SOUL.md")
+                                .font(Theme.terminalFontSM)
+                                .foregroundColor(Theme.textMuted.opacity(0.7))
+                        }
+                        TextEditor(text: $soulContent)
+                            .font(.system(.body, design: .monospaced))
+                            .foregroundColor(.white)
+                            .scrollContentBackground(.hidden)
+                            .background(Theme.darkBackground)
+                            .clipShape(RoundedRectangle(cornerRadius: 8))
+                            .frame(minHeight: 80, maxHeight: 140)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                    .stroke(
+                                        isSoulFocused ? Theme.neonCyan.opacity(0.7) : Theme.darkBorder.opacity(0.4),
+                                        lineWidth: isSoulFocused ? 2 : 1
+                                    )
+                            )
+                            .shadow(color: isSoulFocused ? Theme.neonCyan.opacity(0.2) : .clear, radius: 6, x: 0, y: 0)
+                            .onTapGesture { isSoulFocused = true }
                     }
                 }
-                .toggleStyle(.switch)
 
-                // Workspace files hint
-                HStack(spacing: 6) {
-                    Image(systemName: "info.circle")
-                        .font(.caption)
-                        .foregroundColor(Theme.jarvisBlue)
-                    Text("Creating an agent writes IDENTITY.md, USER.md, SOUL.md, BOOTSTRAP.md, AGENTS.md, TOOLS.md, MEMORY.md, and HEARTBEAT.md to the workspace automatically.")
-                        .font(.caption)
-                        .foregroundColor(Theme.textMuted)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                .padding(10)
-                .background(Theme.jarvisBlue.opacity(0.08))
-                .clipShape(RoundedRectangle(cornerRadius: 8))
+                // MARK: Avatar pickers
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("// AVATARS")
+                        .terminalLabel(color: Theme.neonCyan)
 
-                // Identity / Role
-                VStack(alignment: .leading, spacing: 4) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Role & Identity").font(.caption).fontWeight(.medium).foregroundColor(Theme.textMuted)
-                        Text("What this agent is and does — written to IDENTITY.md").font(.caption2).foregroundColor(Theme.textMuted.opacity(0.7))
+                    HStack(spacing: 16) {
+                        inlineAvatarPicker(label: "ACTIVE", path: $activeImagePath, color: Theme.statusOnline)
+                        inlineAvatarPicker(label: "IDLE", path: $idleImagePath, color: Theme.statusOffline)
+                        Spacer()
                     }
-                    TextEditor(text: $identityContent)
-                        .font(.system(.body, design: .monospaced))
-                        .foregroundColor(.white)
-                        .scrollContentBackground(.hidden)
-                        .background(Theme.darkSurface)
-                        .clipShape(RoundedRectangle(cornerRadius: 8))
-                        .frame(minHeight: 80, maxHeight: 140)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 8).stroke(Theme.darkBorder.opacity(0.4), lineWidth: 1)
-                        )
                 }
 
-                // Soul / Personality
-                VStack(alignment: .leading, spacing: 4) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Personality & Behavior").font(.caption).fontWeight(.medium).foregroundColor(Theme.textMuted)
-                        Text("Core values, operating style, how it should behave — written to SOUL.md").font(.caption2).foregroundColor(Theme.textMuted.opacity(0.7))
-                    }
-                    TextEditor(text: $soulContent)
-                        .font(.system(.body, design: .monospaced))
-                        .foregroundColor(.white)
-                        .scrollContentBackground(.hidden)
-                        .background(Theme.darkSurface)
-                        .clipShape(RoundedRectangle(cornerRadius: 8))
-                        .frame(minHeight: 80, maxHeight: 140)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 8).stroke(Theme.darkBorder.opacity(0.4), lineWidth: 1)
-                        )
-                }
-
-                // Avatar pickers
-                HStack(spacing: 16) {
-                    inlineAvatarPicker(label: "Active Avatar", path: $activeImagePath, color: .green)
-                    inlineAvatarPicker(label: "Idle Avatar", path: $idleImagePath, color: .red)
-                    Spacer()
-                }
-
-                // Error
+                // Error display
                 if let err = createError {
-                    Label(err, systemImage: "xmark.circle")
-                        .foregroundColor(.red)
-                        .font(.callout)
+                    HStack(spacing: 8) {
+                        Image(systemName: "xmark.circle")
+                            .foregroundColor(Theme.statusOffline)
+                        Text(err)
+                            .font(Theme.terminalFont)
+                            .foregroundColor(Theme.statusOffline)
+                    }
+                    .padding(10)
+                    .background(Theme.statusOffline.opacity(0.08))
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            .stroke(Theme.statusOffline.opacity(0.3), lineWidth: 1)
+                    )
                 }
 
                 // Create button
                 Button(action: { Task { await createAgent() } }) {
                     if isCreating {
-                        HStack { ProgressView(); Text("Creating…") }
+                        HStack(spacing: 8) {
+                            ProgressView()
+                                .tint(Theme.neonCyan)
+                                .controlSize(.small)
+                            Text("CREATING...")
+                                .font(Theme.terminalFont)
+                        }
                     } else {
-                        Label("Create Agent", systemImage: "plus.circle.fill")
+                        HStack(spacing: 6) {
+                            Image(systemName: "plus.circle.fill")
+                                .font(.system(size: 12, weight: .bold))
+                            Text("CREATE_AGENT")
+                                .font(Theme.terminalFont)
+                        }
                     }
                 }
-                .buttonStyle(.borderedProminent)
-                .tint(Theme.jarvisBlue)
+                .buttonStyle(HQButtonStyle(variant: .glow))
                 .disabled(agentName.trimmingCharacters(in: .whitespaces).isEmpty || isCreating)
+                .controlSize(.large)
             }
             .padding(24)
         }
+        .background(Theme.darkBackground)
         .onAppear {
             Task {
                 await agentsVM.loadModels()
@@ -282,6 +425,11 @@ struct CreateAgentForm: View {
         .onChange(of: selectedModelId) { _, _ in
             guard !suppressModelChangeTracking else { return }
             modelAutoSuggested = false
+        }
+        .onTapGesture {
+            // Dismiss text editor focus states when tapping outside
+            isIdentityFocused = false
+            isSoulFocused = false
         }
     }
 
@@ -320,8 +468,9 @@ struct CreateAgentForm: View {
     }
 
     private func inlineAvatarPicker(label: String, path: Binding<String?>, color: Color) -> some View {
-        VStack(spacing: 4) {
-            Text(label).font(.caption2).foregroundColor(Theme.textMuted)
+        VStack(spacing: 6) {
+            Text(label)
+                .terminalLabel()
             Button(action: {
                 let panel = NSOpenPanel()
                 panel.allowedContentTypes = [.png, .jpeg]
@@ -332,15 +481,26 @@ struct CreateAgentForm: View {
             }) {
                 ZStack {
                     if let p = path.wrappedValue, let img = NSImage(contentsOfFile: p) {
-                        Image(nsImage: img).resizable().interpolation(.high).antialiased(true).aspectRatio(contentMode: .fill)
+                        Image(nsImage: img)
+                            .resizable()
+                            .interpolation(.high)
+                            .antialiased(true)
+                            .aspectRatio(contentMode: .fill)
                             .frame(width: 78, height: 78)
                             .clipShape(RoundedRectangle(cornerRadius: 10))
                             .drawingGroup(opaque: false, colorMode: .linear)
                     } else {
                         RoundedRectangle(cornerRadius: 8)
-                            .fill(color.opacity(0.1))
+                            .fill(color.opacity(0.08))
                             .frame(width: 78, height: 78)
-                            .overlay(Image(systemName: "plus").foregroundColor(color))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                    .stroke(color.opacity(0.3), lineWidth: 1)
+                            )
+                            .overlay(
+                                Image(systemName: "plus")
+                                    .foregroundColor(color.opacity(0.7))
+                            )
                     }
                 }
             }
@@ -370,30 +530,52 @@ struct ScanAgentsView: View {
     var body: some View {
         VStack(spacing: 16) {
             if isScanning {
-                ProgressView("Scanning gateway…")
-                    .tint(Theme.jarvisBlue)
-                    .padding(40)
+                VStack(spacing: 12) {
+                    ProgressView()
+                        .tint(Theme.neonCyan)
+                    Text("SCANNING_GATEWAY...")
+                        .font(Theme.terminalFont)
+                        .foregroundColor(Theme.textMuted)
+                }
+                .padding(40)
             } else if let err = scanError {
-                VStack(spacing: 8) {
-                    Label(err, systemImage: "exclamationmark.triangle")
-                        .foregroundColor(.red)
-                    Button("Retry") { Task { await scan() } }.buttonStyle(.bordered)
+                VStack(spacing: 12) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "exclamationmark.triangle")
+                            .foregroundColor(Theme.glitchAmber)
+                        Text(err)
+                            .font(Theme.terminalFont)
+                            .foregroundColor(Theme.glitchAmber)
+                    }
+                    Button {
+                        Task { await scan() }
+                    } label: {
+                        Text("RETRY")
+                            .font(Theme.terminalFont)
+                    }
+                    .buttonStyle(HQButtonStyle(variant: .secondary))
                 }
                 .padding(40)
             } else if missingAgents.isEmpty {
                 VStack(spacing: 12) {
-                    Image(systemName: "checkmark.circle.fill").font(.largeTitle).foregroundColor(.green)
-                    Text("All gateway agents are already in your dashboard!")
-                        .foregroundColor(Theme.textSecondary)
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.largeTitle)
+                        .foregroundColor(Theme.statusOnline)
+                        .shadow(color: Theme.statusOnline.opacity(0.5), radius: 6, x: 0, y: 0)
+                    Text("ALL_AGENTS_SYNCED")
+                        .font(Theme.headerFont)
+                        .foregroundColor(Theme.statusOnline)
+                    Text("All gateway agents are already in your dashboard.")
+                        .font(Theme.terminalFont)
+                        .foregroundColor(Theme.textMuted)
                         .multilineTextAlignment(.center)
                 }
                 .padding(40)
             } else {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 8) {
-                        Text("Found \(missingAgents.count) agent\(missingAgents.count == 1 ? "" : "s") not yet in your dashboard:")
-                            .font(.callout)
-                            .foregroundColor(Theme.textSecondary)
+                        Text("FOUND \(missingAgents.count) AGENT\(missingAgents.count == 1 ? "" : "S") NOT IN DASHBOARD:")
+                            .terminalLabel(color: Theme.neonCyan)
                             .padding(.horizontal, 24)
 
                         ForEach(missingAgents) { agent in
@@ -410,20 +592,36 @@ struct ScanAgentsView: View {
                                 Text(agent.emoji).font(.title3)
                                 VStack(alignment: .leading, spacing: 2) {
                                     HStack(spacing: 6) {
-                                        Text(agent.name).fontWeight(.medium).foregroundColor(.white)
+                                        Text(agent.name)
+                                            .font(.system(.body, design: .monospaced, weight: .semibold))
+                                            .foregroundColor(.white)
                                         if agent.isDefaultAgent {
-                                            Text("MAIN").font(.system(size: 9, weight: .bold))
-                                                .foregroundColor(Theme.jarvisBlue)
-                                                .padding(.horizontal, 5).padding(.vertical, 2)
-                                                .background(Theme.jarvisBlue.opacity(0.2)).clipShape(Capsule())
+                                            Text("MAIN")
+                                                .font(Theme.terminalFontSM)
+                                                .foregroundColor(Theme.neonCyan)
+                                                .padding(.horizontal, 5)
+                                                .padding(.vertical, 2)
+                                                .background(Theme.neonCyan.opacity(0.15))
+                                                .clipShape(Capsule())
+                                                .overlay(
+                                                    Capsule()
+                                                        .stroke(Theme.neonCyan.opacity(0.4), lineWidth: 1)
+                                                )
                                         }
                                     }
-                                    Text(agent.id).font(.caption).foregroundColor(Theme.textMuted).monospaced()
+                                    Text(agent.id)
+                                        .font(Theme.terminalFontSM)
+                                        .foregroundColor(Theme.textMuted)
+                                        .monospaced()
                                 }
                                 Spacer()
                             }
                             .padding(12)
                             .background(Theme.darkSurface)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                    .stroke(Theme.darkBorder.opacity(0.5), lineWidth: 1)
+                            )
                             .clipShape(RoundedRectangle(cornerRadius: 10))
                             .padding(.horizontal, 24)
                         }
@@ -432,23 +630,38 @@ struct ScanAgentsView: View {
                 }
 
                 HStack {
-                    Button("Select All") { selectedIds = Set(missingAgents.map(\.id)) }
-                        .buttonStyle(.plain).foregroundColor(Theme.jarvisBlue)
+                    Button {
+                        selectedIds = Set(missingAgents.map(\.id))
+                    } label: {
+                        Text("SELECT_ALL")
+                            .font(Theme.terminalFont)
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundColor(Theme.neonCyan)
+
                     Spacer()
+
                     Button(action: { importSelected() }) {
                         if isImporting {
-                            ProgressView().scaleEffect(0.7)
+                            ProgressView()
+                                .controlSize(.small)
+                                .tint(Theme.neonCyan)
                         } else {
-                            Label("Import \(selectedIds.count) Agent\(selectedIds.count == 1 ? "" : "s")", systemImage: "square.and.arrow.down")
+                            HStack(spacing: 6) {
+                                Image(systemName: "square.and.arrow.down")
+                                    .font(.system(size: 11, weight: .bold))
+                                Text("IMPORT_\(selectedIds.count)_AGENT\(selectedIds.count == 1 ? "" : "S")")
+                                    .font(Theme.terminalFont)
+                            }
                         }
                     }
-                    .buttonStyle(.borderedProminent)
-                    .tint(Theme.jarvisBlue)
+                    .buttonStyle(HQButtonStyle(variant: .glow))
                     .disabled(selectedIds.isEmpty || isImporting)
                 }
                 .padding(24)
             }
         }
+        .background(Theme.darkBackground)
         .task { await scan() }
     }
 

@@ -11,11 +11,24 @@ struct TasksView: View {
             controlsBar
 
             if tasksVM.isExecutionPaused {
-                HQStatusPill(text: "Task execution paused — in-progress work is halted.", color: Theme.statusOffline)
-                    .padding(.vertical, 8)
+                HStack(spacing: 8) {
+                    Text("⏸")
+                        .font(Theme.terminalFont)
+                        .foregroundColor(Theme.glitchAmber)
+                    Text("EXECUTION_SUSPENDED — IN-PROGRESS WORK HALTED")
+                        .font(Theme.terminalFont)
+                        .foregroundColor(Theme.glitchAmber)
+                        .tracking(1)
+                    Spacer()
+                }
+                .padding(.horizontal, 20)
+                .padding(.vertical, 8)
+                .background(Theme.glitchAmber.opacity(0.08))
+                .overlay(alignment: .bottom) {
+                    Rectangle().fill(Theme.glitchAmber.opacity(0.25)).frame(height: 1)
+                }
             }
 
-            // Kanban columns
             if tasksVM.isLoading {
                 loadingState
                     .transition(reduceMotion ? .opacity : .opacity.combined(with: .move(edge: .bottom)))
@@ -133,21 +146,42 @@ struct TasksView: View {
 
     private var controlsBar: some View {
         HStack(spacing: 10) {
-            HQButton(variant: .primary) {
+            // "[ OPS_BOARD ]" header
+            HStack(spacing: 6) {
+                Text("[")
+                    .font(.system(.headline, design: .monospaced).weight(.bold))
+                    .foregroundColor(Theme.neonCyan.opacity(0.6))
+                Text("OPS_BOARD")
+                    .font(Theme.headerFont)
+                    .foregroundColor(Theme.neonCyan)
+                    .glitchText()
+                Text("]")
+                    .font(.system(.headline, design: .monospaced).weight(.bold))
+                    .foregroundColor(Theme.neonCyan.opacity(0.6))
+            }
+
+            Spacer()
+
+            HQButton(variant: .glow) {
                 tasksVM.startNewTask()
             } label: {
-                Label("New Task", systemImage: "plus")
+                HStack(spacing: 6) {
+                    Image(systemName: "plus")
+                    Text("NEW_TASK")
+                        .font(Theme.terminalFont)
+                }
             }
 
             HQButton(variant: tasksVM.isExecutionPaused ? .primary : .danger) {
                 tasksVM.toggleExecutionPaused()
             } label: {
-                Label(tasksVM.isExecutionPaused ? "Resume" : "Pause",
-                      systemImage: tasksVM.isExecutionPaused ? "play.fill" : "pause.fill")
+                HStack(spacing: 6) {
+                    Text(tasksVM.isExecutionPaused ? "▶" : "⏸")
+                    Text(tasksVM.isExecutionPaused ? "RESUME" : "SUSPEND")
+                        .font(Theme.terminalFont)
+                }
             }
             .help(tasksVM.isExecutionPaused ? "Resume all task activity" : "Pause all task activity")
-
-            Spacer()
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 10)
@@ -160,7 +194,6 @@ struct TasksView: View {
             handledAny = true
 
             if let displaced = outcome.displacedTask {
-                // Surface queue displacement for visibility.
                 print("[Tasks] Displaced in-progress task to Queue: \(displaced.title)")
             }
             _ = outcome.startedTask

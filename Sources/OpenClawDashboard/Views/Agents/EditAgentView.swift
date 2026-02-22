@@ -1,6 +1,8 @@
 import SwiftUI
 import AppKit
 
+// EDIT_UNIT
+
 struct EditAgentView: View {
     let agent: Agent
     @Environment(\.dismiss) private var dismiss
@@ -20,6 +22,11 @@ struct EditAgentView: View {
     @State private var saveError: String?
     @State private var savedConfirmation = false
     @FocusState private var isEmojiFieldFocused: Bool
+    @FocusState private var focusedField: EditField?
+
+    private enum EditField: Hashable {
+        case name, title, identity
+    }
 
     private let commonEmojis = ["🤖", "🧠", "🔍", "🧩", "📐", "🗺️", "⚡", "🎯", "🚀", "💡", "🔮", "🌟", "🦊", "🐉", "🦁"]
 
@@ -38,154 +45,241 @@ struct EditAgentView: View {
         HQModalChrome {
             VStack(spacing: 0) {
                 // Header
-                HStack {
-                    Button("Cancel") { dismiss() }
-                        .buttonStyle(.plain)
-                        .foregroundColor(Theme.textMuted)
+                HStack(alignment: .center, spacing: 12) {
+                    Button("CANCEL") { dismiss() }
+                        .buttonStyle(HQButtonStyle(variant: .secondary))
+
                     Spacer()
-                    Text("Edit \(agent.name)")
-                        .font(.headline)
-                        .foregroundColor(.white)
+
+                    VStack(spacing: 2) {
+                        Text("// EDIT_UNIT")
+                            .font(Theme.terminalFontSM)
+                            .foregroundColor(Theme.textMuted)
+                            .tracking(1.5)
+                        Text(agent.name.uppercased())
+                            .font(.system(.title3, design: .monospaced).weight(.bold))
+                            .foregroundColor(Theme.neonCyan)
+                            .glitchText()
+                    }
+
                     Spacer()
+
                     Button(action: { Task { await saveChanges() } }) {
                         if isSaving {
                             ProgressView().scaleEffect(0.7)
                         } else if savedConfirmation {
-                            Label("Saved!", systemImage: "checkmark.circle.fill")
-                                .foregroundColor(.green)
+                            HStack(spacing: 6) {
+                                Image(systemName: "checkmark.circle.fill")
+                                Text("SAVED")
+                            }
+                            .font(Theme.terminalFont)
+                            .foregroundColor(Theme.statusOnline)
                         } else {
-                            Text("Save")
-                                .fontWeight(.semibold)
-                                .foregroundColor(Theme.jarvisBlue)
+                            Text("WRITE_UNIT")
                         }
                     }
+                    .buttonStyle(HQButtonStyle(variant: .glow))
                     .disabled(isSaving)
                 }
                 .padding(20)
                 .background(Theme.darkSurface)
-
-                Divider().opacity(0.3)
+                .overlay(alignment: .bottom) {
+                    Rectangle()
+                        .fill(Theme.neonCyan.opacity(0.25))
+                        .frame(height: 1)
+                }
 
                 ScrollView {
-                    VStack(alignment: .leading, spacing: 20) {
+                    VStack(alignment: .leading, spacing: 24) {
 
                         // Agent ID (read-only)
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("Agent ID").font(.caption).foregroundColor(Theme.textMuted)
-                            Text(agent.id)
-                                .font(.system(.caption, design: .monospaced))
-                                .foregroundColor(Theme.textMuted)
-                                .padding(6)
-                                .background(Theme.darkSurface)
-                                .clipShape(RoundedRectangle(cornerRadius: 6))
-                        }
-
-                        // Name + Emoji
-                        HStack(spacing: 12) {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("Name").font(.caption).foregroundColor(Theme.textMuted)
-                                TextField("Agent name", text: $agentName)
-                                    .textFieldStyle(.roundedBorder)
-                                    .disabled(agent.isDefaultAgent)
-                            }
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("Emoji").font(.caption).foregroundColor(Theme.textMuted)
-                                TextField("🤖", text: $agentEmoji)
-                                    .textFieldStyle(.roundedBorder)
-                                    .frame(width: 60)
-                                    .focused($isEmojiFieldFocused)
-                            }
-                        }
-
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("Title").font(.caption).foregroundColor(Theme.textMuted)
-                            TextField("e.g. The Architect", text: $agentTitle)
-                                .textFieldStyle(.roundedBorder)
-                        }
-
-                        // Emoji quick pick
-                        LazyVGrid(columns: Array(repeating: .init(.fixed(36)), count: 15), spacing: 4) {
-                            ForEach(commonEmojis, id: \.self) { e in
-                                Button(e) { agentEmoji = e }
-                                    .font(.title3)
-                                    .frame(width: 32, height: 32)
-                                    .background(agentEmoji == e ? Theme.jarvisBlue.opacity(0.3) : Color.clear)
-                                    .clipShape(RoundedRectangle(cornerRadius: 6))
-                                    .buttonStyle(.plain)
-                            }
-                            Button {
-                                isEmojiFieldFocused = true
-                                DispatchQueue.main.async {
-                                    NSApp.orderFrontCharacterPalette(nil)
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("// UNIT_ID")
+                                .terminalLabel()
+                            NeonBorderPanel(color: Theme.darkBorder, cornerRadius: 6, surface: Theme.darkBackground, lineWidth: 1) {
+                                HStack(spacing: 8) {
+                                    Text("$")
+                                        .font(Theme.terminalFontSM)
+                                        .foregroundColor(Theme.textMuted)
+                                    Text(agent.id)
+                                        .font(.system(.caption, design: .monospaced))
+                                        .foregroundColor(Theme.textMetadata)
                                 }
-                            } label: {
-                                Image(systemName: "face.smiling")
-                                    .font(.subheadline.weight(.semibold))
-                                    .frame(width: 32, height: 32)
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 6)
                             }
-                            .background(Theme.darkSurface)
-                            .clipShape(RoundedRectangle(cornerRadius: 6))
-                            .buttonStyle(.plain)
-                            .help("Open full emoji picker")
                         }
 
-                        // Model picker
-                        VStack(alignment: .leading, spacing: 4) {
+                        // IDENTITY section
+                        VStack(alignment: .leading, spacing: 12) {
+                            Text("// IDENTITY")
+                                .terminalLabel()
+
+                            HStack(spacing: 12) {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text("NAME")
+                                        .font(Theme.terminalFontSM)
+                                        .foregroundColor(Theme.textMuted)
+                                        .tracking(1.2)
+                                    TextField("UNIT_NAME", text: $agentName)
+                                        .textFieldStyle(.plain)
+                                        .foregroundColor(Theme.textPrimary)
+                                        .focused($focusedField, equals: .name)
+                                        .cyberpunkInput(isFocused: focusedField == .name)
+                                        .disabled(agent.isDefaultAgent)
+                                }
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text("EMOJI")
+                                        .font(Theme.terminalFontSM)
+                                        .foregroundColor(Theme.textMuted)
+                                        .tracking(1.2)
+                                    TextField("🤖", text: $agentEmoji)
+                                        .textFieldStyle(.plain)
+                                        .foregroundColor(Theme.textPrimary)
+                                        .focused($isEmojiFieldFocused)
+                                        .cyberpunkInput(isFocused: isEmojiFieldFocused)
+                                        .frame(width: 60)
+                                }
+                            }
+
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("TITLE")
+                                    .font(Theme.terminalFontSM)
+                                    .foregroundColor(Theme.textMuted)
+                                    .tracking(1.2)
+                                TextField("e.g. THE_ARCHITECT", text: $agentTitle)
+                                    .textFieldStyle(.plain)
+                                    .foregroundColor(Theme.textPrimary)
+                                    .focused($focusedField, equals: .title)
+                                    .cyberpunkInput(isFocused: focusedField == .title)
+                            }
+
+                            // Emoji quick pick
+                            LazyVGrid(columns: Array(repeating: .init(.fixed(36)), count: 15), spacing: 4) {
+                                ForEach(commonEmojis, id: \.self) { e in
+                                    Button(e) { agentEmoji = e }
+                                        .font(.title3)
+                                        .frame(width: 32, height: 32)
+                                        .background(agentEmoji == e ? Theme.neonCyan.opacity(0.2) : Color.clear)
+                                        .overlay(
+                                            RoundedRectangle(cornerRadius: 4)
+                                                .stroke(agentEmoji == e ? Theme.neonCyan.opacity(0.7) : Color.clear, lineWidth: 1)
+                                        )
+                                        .clipShape(RoundedRectangle(cornerRadius: 4))
+                                        .buttonStyle(.plain)
+                                }
+                                Button {
+                                    isEmojiFieldFocused = true
+                                    DispatchQueue.main.async {
+                                        NSApp.orderFrontCharacterPalette(nil)
+                                    }
+                                } label: {
+                                    Image(systemName: "face.smiling")
+                                        .font(.subheadline.weight(.semibold))
+                                        .frame(width: 32, height: 32)
+                                        .foregroundColor(Theme.textMuted)
+                                }
+                                .background(Theme.darkSurface)
+                                .overlay(RoundedRectangle(cornerRadius: 4).stroke(Theme.darkBorder, lineWidth: 1))
+                                .clipShape(RoundedRectangle(cornerRadius: 4))
+                                .buttonStyle(.plain)
+                                .help("Open full emoji picker")
+                            }
+                        }
+
+                        // MODEL section
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("// MODEL")
+                                .terminalLabel()
+
                             ModelPickerView(agentId: agent.id, selectedModelId: $selectedModelId)
                                 .environmentObject(agentsVM)
                                 .environmentObject(gatewayService)
+
                             HStack(spacing: 8) {
                                 let recommended = agentsVM.recommendedDefaultModelId(agentName: agentName, identityHint: identityContent)
-                                Text("Recommended: \(recommended)")
-                                    .font(.caption2)
+                                Text("REC:\(recommended)")
+                                    .font(Theme.terminalFontSM)
                                     .foregroundColor(Theme.textMuted)
                                 Spacer()
-                                Button("Use Recommended") {
+                                Button("USE_RECOMMENDED") {
                                     selectedModelId = recommended
                                 }
-                                .buttonStyle(.bordered)
-                                .controlSize(.small)
+                                .buttonStyle(HQButtonStyle(variant: .secondary))
                             }
                         }
 
-                        Toggle(isOn: $canCommunicateWithAgents) {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text("Allow Agent-to-Agent Collaboration")
-                                    .foregroundColor(.white)
-                                Text("When enabled, this agent may coordinate with other agents via Jarvis.")
-                                    .font(.caption)
+                        // PERSONALITY section
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("// PERSONALITY")
+                                .terminalLabel()
+
+                            Toggle(isOn: $canCommunicateWithAgents) {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("ALLOW_AGENT_COLLABORATION")
+                                        .font(Theme.terminalFont)
+                                        .foregroundColor(Theme.textPrimary)
+                                    Text("When enabled, this unit may coordinate with other agents via Jarvis.")
+                                        .font(Theme.terminalFontSM)
+                                        .foregroundColor(Theme.textMuted)
+                                }
+                            }
+                            .toggleStyle(.switch)
+                            .tint(Theme.neonCyan)
+
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("SYSTEM_PROMPT / IDENTITY (optional)")
+                                    .font(Theme.terminalFontSM)
                                     .foregroundColor(Theme.textMuted)
+                                    .tracking(1.2)
+                                ZStack(alignment: .topLeading) {
+                                    TextEditor(text: $identityContent)
+                                        .font(.system(.body, design: .monospaced))
+                                        .foregroundColor(Theme.terminalGreen)
+                                        .scrollContentBackground(.hidden)
+                                        .background(Theme.darkBackground)
+                                        .focused($focusedField, equals: .identity)
+                                        .frame(minHeight: 80, maxHeight: 160)
+                                }
+                                .background(Theme.darkBackground)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 6)
+                                        .stroke(
+                                            focusedField == .identity ? Theme.neonCyan.opacity(0.8) : Theme.darkBorder.opacity(0.5),
+                                            lineWidth: focusedField == .identity ? 1.5 : 1
+                                        )
+                                        .shadow(color: focusedField == .identity ? Theme.neonCyan.opacity(0.25) : .clear, radius: 6)
+                                )
+                                .clipShape(RoundedRectangle(cornerRadius: 6))
                             }
                         }
-                        .toggleStyle(.switch)
 
-                        // Identity / System prompt
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("System Prompt / Identity (optional)").font(.caption).foregroundColor(Theme.textMuted)
-                            TextEditor(text: $identityContent)
-                                .font(.system(.body, design: .monospaced))
-                                .foregroundColor(.white)
-                                .scrollContentBackground(.hidden)
-                                .background(Theme.darkSurface)
-                                .clipShape(RoundedRectangle(cornerRadius: 8))
-                                .frame(minHeight: 80, maxHeight: 160)
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 8).stroke(Theme.darkBorder.opacity(0.4), lineWidth: 1)
-                                )
+                        // AVATARS section
+                        VStack(alignment: .leading, spacing: 10) {
+                            Text("// AVATARS")
+                                .terminalLabel()
+
+                            HStack(spacing: 16) {
+                                inlineAvatarPicker(label: "ACTIVE_STATE", path: $activeImagePath, color: Theme.statusOnline)
+                                inlineAvatarPicker(label: "IDLE_STATE", path: $idleImagePath, color: Theme.statusOffline)
+                                Spacer()
+                            }
                         }
 
-                        // Avatar pickers
-                        HStack(spacing: 16) {
-                            inlineAvatarPicker(label: "Active Avatar", path: $activeImagePath, color: .green)
-                            inlineAvatarPicker(label: "Idle Avatar", path: $idleImagePath, color: .red)
-                            Spacer()
-                        }
-
-                        // Error
+                        // Error display
                         if let err = saveError {
-                            Label(err, systemImage: "xmark.circle")
-                                .foregroundColor(.red)
-                                .font(.callout)
+                            HStack(spacing: 8) {
+                                Text("ERR:")
+                                    .font(Theme.terminalFont)
+                                    .foregroundColor(Theme.statusOffline)
+                                Text(err)
+                                    .font(Theme.terminalFont)
+                                    .foregroundColor(Theme.statusOffline)
+                            }
+                            .padding(10)
+                            .background(Theme.statusOffline.opacity(0.1))
+                            .overlay(RoundedRectangle(cornerRadius: 6).stroke(Theme.statusOffline.opacity(0.4), lineWidth: 1))
+                            .clipShape(RoundedRectangle(cornerRadius: 6))
                         }
                     }
                     .padding(24)
@@ -224,8 +318,11 @@ struct EditAgentView: View {
     }
 
     private func inlineAvatarPicker(label: String, path: Binding<String?>, color: Color) -> some View {
-        VStack(spacing: 4) {
-            Text(label).font(.caption2).foregroundColor(Theme.textMuted)
+        VStack(spacing: 6) {
+            Text(label)
+                .font(Theme.terminalFontSM)
+                .foregroundColor(Theme.textMuted)
+                .tracking(1.2)
             Button(action: {
                 let panel = NSOpenPanel()
                 panel.allowedContentTypes = [.png, .jpeg]
@@ -238,13 +335,20 @@ struct EditAgentView: View {
                     if let p = path.wrappedValue, let img = NSImage(contentsOfFile: p) {
                         Image(nsImage: img).resizable().interpolation(.high).antialiased(true).aspectRatio(contentMode: .fill)
                             .frame(width: 78, height: 78)
-                            .clipShape(RoundedRectangle(cornerRadius: 10))
+                            .clipShape(RoundedRectangle(cornerRadius: 8))
                             .drawingGroup(opaque: false, colorMode: .linear)
                     } else {
-                        RoundedRectangle(cornerRadius: 8)
-                            .fill(color.opacity(0.1))
+                        NeonBorderPanel(color: color, cornerRadius: 8, surface: color.opacity(0.05), lineWidth: 1) {
+                            VStack(spacing: 4) {
+                                Image(systemName: "plus")
+                                    .foregroundColor(color)
+                                    .font(.title3)
+                                Text("SELECT")
+                                    .font(Theme.terminalFontSM)
+                                    .foregroundColor(color.opacity(0.7))
+                            }
                             .frame(width: 78, height: 78)
-                            .overlay(Image(systemName: "plus").foregroundColor(color))
+                        }
                     }
                 }
             }

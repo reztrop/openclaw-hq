@@ -16,7 +16,9 @@ struct ProjectsView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
 
                 if !isSidebarCollapsed {
-                    Divider().background(Theme.darkBorder)
+                    Rectangle()
+                        .fill(Theme.darkBorder.opacity(0.5))
+                        .frame(width: 1)
                     sidebar
                         .frame(width: 320)
                         .background(
@@ -64,9 +66,14 @@ struct ProjectsView: View {
                     stageBar(project)
                     stageContent(project)
                     if let status = projectsVM.statusMessage {
-                        Text(status)
-                            .font(.caption)
-                            .foregroundColor(Theme.textMuted)
+                        HStack(spacing: 6) {
+                            Text("$")
+                                .font(Theme.terminalFontSM)
+                                .foregroundColor(Theme.textMuted)
+                            Text(status)
+                                .font(Theme.terminalFontSM)
+                                .foregroundColor(Theme.textMuted)
+                        }
                     }
                 }
                 .padding(24)
@@ -94,9 +101,8 @@ struct ProjectsView: View {
     private var sidebar: some View {
         VStack(spacing: 10) {
             HStack {
-                Text("Projects")
-                    .font(.headline)
-                    .foregroundColor(.white)
+                Text("// PROJECT_DOSSIER")
+                    .terminalLabel()
                 Spacer()
             }
 
@@ -151,11 +157,20 @@ struct ProjectsView: View {
 
     private var topBar: some View {
         HStack(spacing: 10) {
-            Text(topBarTitle(projectsVM.selectedProject))
-                .font(.title2)
-                .fontWeight(.bold)
-                .foregroundColor(.white)
-                .lineLimit(1)
+            // "[ PROJECT_DOSSIER ]" header
+            HStack(spacing: 4) {
+                Text("[")
+                    .font(.system(.title2, design: .monospaced).weight(.bold))
+                    .foregroundColor(Theme.neonCyan.opacity(0.6))
+                Text("PROJECT_DOSSIER")
+                    .font(.system(.title2, design: .monospaced).weight(.bold))
+                    .foregroundColor(Theme.neonCyan)
+                    .glitchText()
+                Text("]")
+                    .font(.system(.title2, design: .monospaced).weight(.bold))
+                    .foregroundColor(Theme.neonCyan.opacity(0.6))
+            }
+            .lineLimit(1)
 
             Spacer()
 
@@ -181,7 +196,7 @@ struct ProjectsView: View {
         VStack(alignment: .leading, spacing: 10) {
             topBar
             LabeledTextField(
-                title: "Project Name",
+                title: "PROJECT_NAME",
                 text: Binding(
                     get: { project.title },
                     set: { projectsVM.updateProjectTitle($0) }
@@ -189,8 +204,8 @@ struct ProjectsView: View {
                 onCommit: { }
             )
             Text("Edit any page before approval. Approving a page auto-saves and dispatches Jarvis + team to regenerate downstream pages up to your current progress.")
-                .font(.subheadline)
-                .foregroundColor(Theme.textSecondary)
+                .font(Theme.terminalFontSM)
+                .foregroundColor(Theme.textMuted)
         }
     }
 
@@ -199,32 +214,39 @@ struct ProjectsView: View {
         let isHovered = hoveredProjectId == project.id
         return VStack(alignment: .leading, spacing: 6) {
             HStack {
-                Text(project.title)
-                    .font(.headline)
-                    .fontWeight(isSelected ? .semibold : .regular)
-                    .foregroundColor(isSelected ? Theme.textPrimary : Theme.textSecondary)
-                    .lineLimit(1)
+                // "> PROJECT_NAME" format
+                HStack(spacing: 4) {
+                    if isSelected {
+                        Text(">")
+                            .font(.system(.caption, design: .monospaced).weight(.bold))
+                            .foregroundColor(Theme.neonCyan)
+                    }
+                    Text(project.title.uppercased())
+                        .font(.system(.caption, design: .monospaced).weight(isSelected ? .semibold : .regular))
+                        .foregroundColor(isSelected ? Theme.neonCyan : Theme.textSecondary)
+                        .lineLimit(1)
+                }
                 Spacer()
                 HQBadge(text: project.blueprint.activeStage.rawValue, tone: .neutral)
             }
             Text(project.blueprint.overview)
-                .font(.caption)
+                .font(Theme.terminalFontSM)
                 .foregroundColor(isSelected ? Theme.textSecondary : Theme.textMuted)
                 .lineLimit(2)
             Text(project.updatedAt.formatted(date: .abbreviated, time: .shortened))
-                .font(.caption2)
+                .font(Theme.terminalFontSM)
                 .foregroundColor(isSelected ? Theme.textMetadata : Theme.textMuted)
         }
         .padding(10)
         .background(
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .fill(isSelected ? Theme.darkAccent : Theme.darkSurface)
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .fill(isSelected ? Theme.neonCyan.opacity(0.07) : Theme.darkSurface)
                 .overlay(
-                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
                         .stroke(
                             isSelected
-                                ? Theme.neonCyan.opacity(0.9)
-                                : (isHovered ? Theme.darkBorder : Theme.darkBorder.opacity(0.6)),
+                                ? Theme.neonCyan.opacity(0.7)
+                                : (isHovered ? Theme.darkBorder : Theme.darkBorder.opacity(0.5)),
                             lineWidth: isSelected ? 1.2 : 1
                         )
                 )
@@ -238,37 +260,55 @@ struct ProjectsView: View {
                     .padding(.vertical, 6)
             }
         }
-        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
         .onHover { hovering in
             hoveredProjectId = hovering ? project.id : (hoveredProjectId == project.id ? nil : hoveredProjectId)
         }
     }
 
     private func stageBar(_ project: ProjectRecord) -> some View {
-        HStack(spacing: 10) {
+        HStack(spacing: 8) {
             ForEach(ProductStage.allCases) { stage in
+                let isActive = project.blueprint.activeStage == stage
+                let isApproved = project.approvedStages.contains(stage)
+
                 Button {
                     projectsVM.setStage(stage)
                 } label: {
-                    HStack(spacing: 8) {
-                        if project.approvedStages.contains(stage) {
-                            Image(systemName: "checkmark.circle.fill")
+                    HStack(spacing: 6) {
+                        if isApproved {
+                            Text("[✓]")
+                                .font(.system(.caption2, design: .monospaced).weight(.bold))
                                 .foregroundColor(Theme.statusOnline)
                         } else {
-                            Image(systemName: stage.icon)
+                            Text("[\(stage.rawValue.prefix(1))]")
+                                .font(.system(.caption2, design: .monospaced))
+                                .foregroundColor(isActive ? Theme.neonCyan : Theme.textMuted)
                         }
-                        Text(stage.rawValue)
+                        Text(stage.rawValue.uppercased())
+                            .font(Theme.terminalFontSM)
                             .fontWeight(.semibold)
                     }
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 8)
-                    .foregroundColor(project.blueprint.activeStage == stage ? .black : Theme.textSecondary)
-                    .background(project.blueprint.activeStage == stage ? Theme.jarvisBlue : Theme.darkSurface)
-                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 10, style: .continuous)
-                            .stroke(Theme.darkBorder, lineWidth: project.blueprint.activeStage == stage ? 0 : 1)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 7)
+                    .foregroundColor(
+                        isApproved ? Theme.statusOnline :
+                        (isActive ? Theme.neonCyan : Theme.textSecondary)
                     )
+                    .background(
+                        isActive
+                            ? Theme.neonCyan.opacity(0.1)
+                            : (isApproved ? Theme.statusOnline.opacity(0.07) : Theme.darkSurface)
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            .stroke(
+                                isActive ? Theme.neonCyan.opacity(0.7) :
+                                (isApproved ? Theme.statusOnline.opacity(0.4) : Theme.darkBorder.opacity(0.6)),
+                                lineWidth: isActive ? 1.5 : 1
+                            )
+                    )
+                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
                 }
                 .buttonStyle(.plain)
             }
@@ -316,48 +356,48 @@ struct ProjectsView: View {
 
     private func productStage(_ project: ProjectRecord) -> some View {
         VStack(alignment: .leading, spacing: 14) {
-            stageCardTitle("Product", "Define scope and outcomes before team drafting starts.")
+            stageCardTitle("PRODUCT", "Define scope and outcomes before team drafting starts.")
             LabeledTextEditor(
-                title: "Project Overview",
+                title: "PROJECT_OVERVIEW",
                 text: Binding(get: { project.blueprint.overview }, set: { projectsVM.updateOverview($0) }),
                 minHeight: 110,
                 onCommit: { }
             )
             HStack(spacing: 12) {
                 LabeledTextEditor(
-                    title: "Problems & Solutions",
+                    title: "PROBLEMS_AND_SOLUTIONS",
                     text: Binding(get: { project.blueprint.problemsText }, set: { projectsVM.updateProblems($0) }),
                     minHeight: 170,
                     onCommit: { }
                 )
                 LabeledTextEditor(
-                    title: "Key Features",
+                    title: "KEY_FEATURES",
                     text: Binding(get: { project.blueprint.featuresText }, set: { projectsVM.updateFeatures($0) }),
                     minHeight: 170,
                     onCommit: { }
                 )
             }
             HStack(spacing: 10) {
-                Button("Save") { projectsVM.save() }
-                    .buttonStyle(.bordered)
-                Button(project.blueprint.activeStage.approveLabel) {
+                Button("SAVE") { projectsVM.save() }
+                    .buttonStyle(HQButtonStyle(variant: .secondary))
+                Button(project.blueprint.activeStage.approveLabel.uppercased()) {
                     Task { await projectsVM.approveCurrentStage() }
                 }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(HQButtonStyle(variant: .glow))
                 .disabled(projectsVM.isApproving)
             }
         }
         .padding(16)
         .background(Theme.darkSurface)
-        .overlay(RoundedRectangle(cornerRadius: 14).stroke(Theme.darkBorder, lineWidth: 1))
-        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 12).stroke(Theme.neonCyan.opacity(0.15), lineWidth: 1))
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 
     private func sectionsStage(_ project: ProjectRecord) -> some View {
         VStack(alignment: .leading, spacing: 14) {
-            stageCardTitle("Sections", "Team-generated section draft plus completion tracking.")
+            stageCardTitle("SECTIONS", "Team-generated section draft plus completion tracking.")
             LabeledTextEditor(
-                title: "Sections Draft",
+                title: "SECTIONS_DRAFT",
                 text: Binding(get: { project.blueprint.sectionsDraftText }, set: { projectsVM.updateSectionsDraft($0) }),
                 minHeight: 180,
                 onCommit: { }
@@ -370,16 +410,17 @@ struct ProjectsView: View {
                         set: { projectsVM.setSectionCompletion(section.id, completed: $0) }
                     ))
                     .toggleStyle(.checkbox)
+                    .tint(Theme.neonCyan)
 
                     VStack(alignment: .leading, spacing: 4) {
                         HStack {
-                            Text(section.title)
-                                .font(.headline)
-                                .foregroundColor(.white)
+                            Text(section.title.uppercased())
+                                .font(Theme.terminalFont)
+                                .foregroundColor(Theme.textPrimary)
                             Spacer()
-                            Text(section.ownerAgent)
-                                .font(.caption)
-                                .foregroundColor(Theme.textMuted)
+                            Text("@\(section.ownerAgent.lowercased())")
+                                .font(Theme.terminalFontSM)
+                                .foregroundColor(Theme.agentColor(for: section.ownerAgent))
                         }
                         Text(section.summary)
                             .foregroundColor(Theme.textSecondary)
@@ -388,62 +429,62 @@ struct ProjectsView: View {
                 }
                 .padding(12)
                 .background(Theme.darkBackground)
-                .overlay(RoundedRectangle(cornerRadius: 12).stroke(Theme.darkBorder, lineWidth: 1))
-                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: 8).stroke(Theme.darkBorder, lineWidth: 1))
+                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
             }
 
             HStack(spacing: 10) {
-                Button("Save") { projectsVM.save() }
-                    .buttonStyle(.bordered)
-                Button(project.blueprint.activeStage.approveLabel) {
+                Button("SAVE") { projectsVM.save() }
+                    .buttonStyle(HQButtonStyle(variant: .secondary))
+                Button(project.blueprint.activeStage.approveLabel.uppercased()) {
                     Task { await projectsVM.approveCurrentStage() }
                 }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(HQButtonStyle(variant: .glow))
                 .disabled(projectsVM.isApproving)
             }
         }
         .padding(16)
         .background(Theme.darkSurface)
-        .overlay(RoundedRectangle(cornerRadius: 14).stroke(Theme.darkBorder, lineWidth: 1))
-        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 12).stroke(Theme.neonCyan.opacity(0.15), lineWidth: 1))
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 
     private func exportStage(_ project: ProjectRecord) -> some View {
         let markdown = projectsVM.exportMarkdown()
         return VStack(alignment: .leading, spacing: 14) {
-            stageCardTitle("Export", "Final package and rollout notes.")
+            stageCardTitle("EXPORT", "Final package and rollout notes.")
             LabeledTextEditor(
-                title: "Export Notes",
+                title: "EXPORT_NOTES",
                 text: Binding(get: { project.blueprint.exportNotes }, set: { projectsVM.updateExportNotes($0) }),
                 minHeight: 140,
                 onCommit: { }
             )
             Text(markdown)
                 .font(.system(.body, design: .monospaced))
-                .foregroundColor(Theme.textSecondary)
+                .foregroundColor(Theme.terminalGreen)
                 .padding(12)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(Theme.darkBackground)
-                .overlay(RoundedRectangle(cornerRadius: 12).stroke(Theme.darkBorder, lineWidth: 1))
-                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: 8).stroke(Theme.neonCyan.opacity(0.2), lineWidth: 1))
+                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
             HStack(spacing: 10) {
-                Button("Save") { projectsVM.save() }
-                    .buttonStyle(.bordered)
-                Button("Save As") {
+                Button("SAVE") { projectsVM.save() }
+                    .buttonStyle(HQButtonStyle(variant: .secondary))
+                Button("SAVE_AS") {
                     saveExportAs(projectName: project.title, markdown: markdown)
                 }
-                .buttonStyle(.borderedProminent)
-                Button("Execute") {
+                .buttonStyle(HQButtonStyle(variant: .secondary))
+                Button("EXECUTE") {
                     Task { await projectsVM.executeCurrentProjectPlan() }
                 }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(HQButtonStyle(variant: .glow))
                 .disabled(projectsVM.isApproving)
             }
         }
         .padding(16)
         .background(Theme.darkSurface)
-        .overlay(RoundedRectangle(cornerRadius: 14).stroke(Theme.darkBorder, lineWidth: 1))
-        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 12).stroke(Theme.neonCyan.opacity(0.15), lineWidth: 1))
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 
     private func singleTextStage(
@@ -456,29 +497,29 @@ struct ProjectsView: View {
         isApproving: Bool
     ) -> some View {
         VStack(alignment: .leading, spacing: 14) {
-            stageCardTitle(title, subtitle)
-            LabeledTextEditor(title: title, text: value, minHeight: 280, onCommit: { })
+            stageCardTitle(title.uppercased(), subtitle)
+            LabeledTextEditor(title: title.uppercased(), text: value, minHeight: 280, onCommit: { })
             HStack(spacing: 10) {
-                Button("Save") { saveAction() }
-                    .buttonStyle(.bordered)
-                Button(approveLabel) { approveAction() }
-                    .buttonStyle(.borderedProminent)
+                Button("SAVE") { saveAction() }
+                    .buttonStyle(HQButtonStyle(variant: .secondary))
+                Button(approveLabel.uppercased()) { approveAction() }
+                    .buttonStyle(HQButtonStyle(variant: .glow))
                     .disabled(isApproving)
             }
         }
         .padding(16)
         .background(Theme.darkSurface)
-        .overlay(RoundedRectangle(cornerRadius: 14).stroke(Theme.darkBorder, lineWidth: 1))
-        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 12).stroke(Theme.neonCyan.opacity(0.15), lineWidth: 1))
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 
     private func stageCardTitle(_ title: String, _ subtitle: String) -> some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text(title)
-                .font(.title2.bold())
-                .foregroundColor(.white)
+            Text("// \(title)")
+                .terminalLabel()
             Text(subtitle)
-                .foregroundColor(Theme.textSecondary)
+                .font(Theme.terminalFontSM)
+                .foregroundColor(Theme.textMuted)
         }
     }
 
@@ -515,18 +556,19 @@ private struct LabeledTextField: View {
     let title: String
     @Binding var text: String
     var onCommit: () -> Void
+    @FocusState private var isFocused: Bool
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(title)
+                .font(Theme.terminalFontSM)
                 .foregroundColor(Theme.textMuted)
-                .font(.caption)
+                .tracking(1.2)
             TextField("", text: $text, onCommit: onCommit)
                 .textFieldStyle(.plain)
-                .padding(10)
-                .background(Theme.darkBackground)
-                .overlay(RoundedRectangle(cornerRadius: 10).stroke(Theme.darkBorder, lineWidth: 1))
-                .foregroundColor(.white)
+                .foregroundColor(Theme.textPrimary)
+                .focused($isFocused)
+                .cyberpunkInput(isFocused: isFocused)
         }
     }
 }
@@ -536,20 +578,32 @@ private struct LabeledTextEditor: View {
     @Binding var text: String
     let minHeight: CGFloat
     var onCommit: () -> Void
+    @FocusState private var isFocused: Bool
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(title)
+                .font(Theme.terminalFontSM)
                 .foregroundColor(Theme.textMuted)
-                .font(.caption)
+                .tracking(1.2)
             TextEditor(text: $text)
-                .font(.body)
-                .foregroundColor(.white)
+                .font(.system(.body, design: .monospaced))
+                .foregroundColor(Theme.textPrimary)
                 .scrollContentBackground(.hidden)
+                .focused($isFocused)
                 .padding(8)
                 .frame(minHeight: minHeight)
                 .background(Theme.darkBackground)
-                .overlay(RoundedRectangle(cornerRadius: 10).stroke(Theme.darkBorder, lineWidth: 1))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8)
+                        .stroke(
+                            isFocused ? Theme.neonCyan.opacity(0.7) : Theme.darkBorder.opacity(0.6),
+                            lineWidth: isFocused ? 1.5 : 1
+                        )
+                        .shadow(color: isFocused ? Theme.neonCyan.opacity(0.2) : .clear, radius: 6)
+                )
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+                .tint(Theme.neonCyan)
                 .onChange(of: text) { _, _ in onCommit() }
         }
     }

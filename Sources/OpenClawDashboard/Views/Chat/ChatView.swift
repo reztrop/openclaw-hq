@@ -18,8 +18,8 @@ struct ComposerTextView: NSViewRepresentable {
 
         textView.delegate = context.coordinator
         textView.isRichText = false
-        textView.font = .systemFont(ofSize: 13)
-        textView.textColor = .white
+        textView.font = .monospacedSystemFont(ofSize: 13, weight: .regular)
+        textView.textColor = NSColor(Theme.terminalGreen)
         textView.backgroundColor = .clear
         textView.isAutomaticQuoteSubstitutionEnabled = false
         textView.isAutomaticDashSubstitutionEnabled = false
@@ -27,6 +27,7 @@ struct ComposerTextView: NSViewRepresentable {
         textView.isAutomaticTextReplacementEnabled = false
         textView.allowsUndo = true
         textView.textContainerInset = NSSize(width: 4, height: 6)
+        textView.insertionPointColor = NSColor(Theme.neonCyan)
 
         scrollView.hasVerticalScroller = true
         scrollView.autohidesScrollers = true
@@ -85,7 +86,7 @@ struct ComposerTextView: NSViewRepresentable {
             if placeholderLabel == nil {
                 let lbl = NSTextField(labelWithString: "")
                 lbl.textColor = NSColor.tertiaryLabelColor
-                lbl.font = .systemFont(ofSize: 13)
+                lbl.font = .monospacedSystemFont(ofSize: 13, weight: .regular)
                 lbl.isEditable = false
                 lbl.isSelectable = false
                 lbl.isBordered = false
@@ -124,15 +125,22 @@ struct ChatView: View {
             HStack(spacing: 0) {
                 VStack(spacing: 0) {
                     topBar
-                    Divider().background(Theme.darkBorder)
+                    Rectangle()
+                        .fill(Theme.neonCyan.opacity(0.25))
+                        .frame(height: 1)
                     messagesArea
-                    Divider().background(Theme.darkBorder)
+                    // Composer top border
+                    Rectangle()
+                        .fill(Theme.neonCyan.opacity(0.5))
+                        .frame(height: 2)
                     composer
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
 
                 if !isSidebarCollapsed {
-                    Divider().background(Theme.darkBorder)
+                    Rectangle()
+                        .fill(Theme.darkBorder.opacity(0.5))
+                        .frame(width: 1)
 
                     sidebar
                         .frame(width: 320)
@@ -193,12 +201,12 @@ struct ChatView: View {
         .overlay(alignment: .center) {
             if isTargetedForDrop {
                 RoundedRectangle(cornerRadius: 16)
-                    .stroke(Theme.jarvisBlue, style: StrokeStyle(lineWidth: 2, dash: [8]))
+                    .stroke(Theme.neonCyan, style: StrokeStyle(lineWidth: 2, dash: [8]))
                     .padding(16)
                     .overlay {
-                        Text("Drop files to attach")
-                            .font(.headline)
-                            .foregroundColor(.white)
+                        Text("DROP_FILES_TO_ATTACH")
+                            .font(Theme.terminalFont)
+                            .foregroundColor(Theme.neonCyan)
                             .padding(12)
                             .background(Theme.darkSurface.opacity(0.9))
                             .cornerRadius(10)
@@ -208,42 +216,51 @@ struct ChatView: View {
         }
     }
 
-    // MARK: - Top Bar
+    // MARK: - Top Bar (terminal titlebar)
 
     private var topBar: some View {
         HStack(spacing: 10) {
             VStack(alignment: .leading, spacing: 4) {
-                HStack(spacing: 8) {
-                    Image(systemName: "terminal")
-                        .font(.system(size: 12, weight: .semibold, design: .monospaced))
-                        .foregroundColor(Theme.neonCyan)
+                HStack(spacing: 6) {
+                    Text("┌─[")
+                        .font(.system(.body, design: .monospaced))
+                        .foregroundColor(Theme.neonCyan.opacity(0.6))
                     Text("TERMINAL_CHAT")
-                        .font(.system(.title3, design: .monospaced))
-                        .fontWeight(.bold)
+                        .font(.system(.title3, design: .monospaced).weight(.bold))
                         .foregroundColor(Theme.neonCyan)
-                        .fixedSize()
+                        .glitchText()
+                    Text("]")
+                        .font(.system(.body, design: .monospaced))
+                        .foregroundColor(Theme.neonCyan.opacity(0.6))
                 }
 
                 Text(headerStatusLine())
-                    .font(.system(.caption2, design: .monospaced))
+                    .font(Theme.terminalFontSM)
                     .foregroundColor(Theme.textMuted)
                     .lineLimit(1)
                     .truncationMode(.tail)
             }
 
-            // Agent picker
-            Picker("Agent", selection: $chatVM.selectedAgentId) {
-                ForEach(agentsVM.agents, id: \.id) { agent in
-                    Text("\(agent.emoji)  \(agent.name)").tag(agent.id)
+            // Agent picker with terminal label prefix
+            HStack(spacing: 6) {
+                Text("SELECT_AGENT:")
+                    .font(Theme.terminalFontSM)
+                    .foregroundColor(Theme.textMuted)
+                    .tracking(1)
+                    .fixedSize()
+                Picker("Agent", selection: $chatVM.selectedAgentId) {
+                    ForEach(agentsVM.agents, id: \.id) { agent in
+                        Text("\(agent.emoji)  \(agent.name)").tag(agent.id)
+                    }
                 }
+                .pickerStyle(.menu)
+                .frame(width: 180)
+                .disabled(chatVM.selectedConversationIsLockedToAgent)
             }
-            .pickerStyle(.menu)
-            .frame(width: 180)
-            .disabled(chatVM.selectedConversationIsLockedToAgent)
 
             if chatVM.selectedConversationIsLockedToAgent {
-                Text("Agent fixed — start a new chat to switch")
-                    .font(.caption2)
+                Text("SESSION:LOCKED — NEW_CHAT TO SWITCH")
+                    .font(Theme.terminalFontSM)
                     .foregroundColor(Theme.textMuted)
                     .fixedSize()
             }
@@ -268,6 +285,7 @@ struct ChatView: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 10)
+        .background(Theme.darkSurface.opacity(0.9))
         .task { await agentsVM.loadModels() }
     }
 
@@ -280,8 +298,6 @@ struct ChatView: View {
                 set: { newId in
                     guard newId != chatVM.selectedModelId else { return }
                     chatVM.selectedModelId = newId
-                    // Persist the model choice on the agent so the gateway uses it.
-                    // Model selection must go through agents.update — not the agent RPC.
                     if let modelId = newId, !modelId.isEmpty {
                         let agentId = chatVM.currentAgentId
                         Task { try? await agentsVM.updateAgent(agentId: agentId, model: modelId) }
@@ -299,8 +315,6 @@ struct ChatView: View {
         }
     }
 
-    /// Models available for manual override.
-    /// models.list already reflects only connected providers; spark is stripped at load.
     private var filteredModels: [ModelInfo] {
         agentsVM.availableModels
     }
@@ -320,8 +334,6 @@ struct ChatView: View {
                         emptyState
                     }
 
-                    // Live streaming bubble — shows text as tokens arrive.
-                    // Visible whenever isSending is true, even before text accumulates.
                     if chatVM.isSending {
                         streamingBubble
                             .id(chatVM.streamingBubbleId)
@@ -339,7 +351,6 @@ struct ChatView: View {
                 scrollToBottom(proxy: proxy, animated: true)
             }
             .onChange(of: chatVM.streamingText) { _, _ in
-                // Keep streaming bubble pinned to bottom as text grows
                 if reduceMotion {
                     proxy.scrollTo(chatVM.streamingBubbleId, anchor: .bottom)
                 } else {
@@ -386,7 +397,6 @@ struct ChatView: View {
         HStack {
             HQPanel(cornerRadius: 10, surface: Theme.darkSurface.opacity(0.85), border: Theme.darkBorder.opacity(0.5), lineWidth: 1) {
                 VStack(alignment: .leading, spacing: 0) {
-                    // Compact status row — always visible while running
                     Button {
                         if reduceMotion {
                             chatVM.streamingLogExpanded.toggle()
@@ -397,17 +407,16 @@ struct ChatView: View {
                         }
                     } label: {
                         HStack(spacing: 8) {
-                            // Pulsing dot
                             ThinkingDotsView()
                                 .frame(width: 28, height: 14)
 
                             if chatVM.streamingStatusLine.isEmpty {
                                 Text("status> \(selectedAgentName().lowercased()) is working…")
-                                    .font(.system(.caption, design: .monospaced))
+                                    .font(Theme.terminalFontSM)
                                     .foregroundColor(Theme.textMuted)
                             } else {
                                 Text("status> \(chatVM.streamingStatusLine)")
-                                    .font(.system(.caption, design: .monospaced))
+                                    .font(Theme.terminalFontSM)
                                     .foregroundColor(Theme.textSecondary)
                                     .lineLimit(1)
                                     .truncationMode(.tail)
@@ -416,7 +425,6 @@ struct ChatView: View {
 
                             Spacer()
 
-                            // Expand/collapse chevron — only show if there's log content
                             if let log = chatVM.streamingText, !log.isEmpty {
                                 Image(systemName: chatVM.streamingLogExpanded ? "chevron.up" : "chevron.down")
                                     .font(.system(size: 9, weight: .semibold))
@@ -430,11 +438,10 @@ struct ChatView: View {
                     }
                     .buttonStyle(.plain)
 
-                    // Expanded log — full raw stream, fixed height with scroll
                     if chatVM.streamingLogExpanded, let log = chatVM.streamingText, !log.isEmpty {
                         ScrollView(.vertical) {
                             Text(log)
-                                .font(.system(.caption, design: .monospaced))
+                                .font(Theme.terminalFontSM)
                                 .foregroundColor(Theme.textMuted.opacity(0.85))
                                 .frame(maxWidth: .infinity, alignment: .leading)
                                 .padding(10)
@@ -457,42 +464,83 @@ struct ChatView: View {
 
     private func messageBubble(_ message: ChatMessage) -> some View {
         let isError = !message.isUser && message.text.trimmingCharacters(in: .whitespacesAndNewlines).lowercased().hasPrefix("error:")
-        let badgeTone: HQTone = message.isUser ? .accent : (isError ? .danger : .success)
+        let agentName = selectedAgentName()
+        let agentColor = Theme.agentColor(for: agentName)
         let borderColor = message.isUser
-            ? Theme.jarvisBlue.opacity(0.5)
-            : (isError ? Theme.statusOffline.opacity(0.8) : Theme.terminalGreen.opacity(0.3))
+            ? Theme.neonCyan.opacity(0.5)
+            : (isError ? Theme.statusOffline.opacity(0.8) : agentColor.opacity(0.35))
         let surfaceColor = message.isUser
-            ? Theme.jarvisBlue.opacity(0.18)
-            : (isError ? Theme.statusOffline.opacity(0.12) : Theme.darkSurface.opacity(0.92))
+            ? Theme.neonCyan.opacity(0.07)
+            : (isError ? Theme.statusOffline.opacity(0.1) : Theme.darkSurface.opacity(0.92))
         let textColor = message.isUser
             ? Theme.textPrimary
             : (isError ? Theme.statusOffline : Theme.terminalGreen)
 
-        return HStack {
-            if message.isUser { Spacer() }
-            VStack(alignment: .leading, spacing: 6) {
-                HStack(spacing: 8) {
-                    HQBadge(text: message.isUser ? "USER" : selectedAgentName().uppercased(), tone: badgeTone)
+        return HStack(alignment: .top, spacing: 0) {
+            if message.isUser { Spacer(minLength: 80) }
 
-                    if !message.isUser {
+            if message.isUser {
+                // User bubble with left cyan border stripe
+                HStack(alignment: .top, spacing: 0) {
+                    Rectangle()
+                        .fill(Theme.neonCyan)
+                        .frame(width: 3)
+                        .cornerRadius(3, corners: [.topLeft, .bottomLeft])
+
+                    VStack(alignment: .leading, spacing: 6) {
+                        HStack(spacing: 6) {
+                            Text(">")
+                                .font(.system(.caption2, design: .monospaced).weight(.bold))
+                                .foregroundColor(Theme.neonCyan)
+                            HQBadge(text: "USER", tone: .accent)
+                        }
+
+                        HQPanel(cornerRadius: 0, surface: surfaceColor, border: borderColor, lineWidth: 1) {
+                            Text(message.text)
+                                .font(.system(.body, design: .monospaced))
+                                .foregroundColor(textColor)
+                                .padding(12)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .textSelection(.enabled)
+                        }
+                    }
+                    .padding(.leading, 8)
+                }
+                .background(surfaceColor)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 10)
+                        .stroke(borderColor, lineWidth: 1)
+                )
+                .clipShape(RoundedRectangle(cornerRadius: 10))
+            } else {
+                // Agent bubble
+                VStack(alignment: .leading, spacing: 6) {
+                    // Agent header line
+                    HStack(spacing: 8) {
+                        Text("[\(agentName.uppercased())]:")
+                            .font(.system(.caption, design: .monospaced).weight(.bold))
+                            .foregroundColor(agentColor)
                         Text(selectedAgentRole())
-                            .font(.caption2)
+                            .font(Theme.terminalFontSM)
                             .foregroundColor(Theme.textMuted)
                     }
-                }
 
-                HQPanel(cornerRadius: 12, surface: surfaceColor, border: borderColor, lineWidth: 1) {
-                    Text(message.text)
-                        .font(.system(.body, design: .monospaced))
-                        .foregroundColor(textColor)
-                        .padding(12)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .textSelection(.enabled)
+                    ScanlinePanel(opacity: 0.03) {
+                        NeonBorderPanel(color: borderColor, cornerRadius: 12, surface: surfaceColor, lineWidth: 1) {
+                            Text(message.text)
+                                .font(.system(.body, design: .monospaced))
+                                .foregroundColor(textColor)
+                                .padding(12)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .textSelection(.enabled)
+                        }
+                    }
                 }
             }
-            .frame(maxWidth: 700, alignment: .leading)
-            if !message.isUser { Spacer() }
+
+            if !message.isUser { Spacer(minLength: 80) }
         }
+        .frame(maxWidth: .infinity, alignment: message.isUser ? .trailing : .leading)
         .padding(.horizontal, 16)
     }
 
@@ -504,31 +552,41 @@ struct ChatView: View {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 8) {
                         ForEach(chatVM.pendingAttachments) { file in
-                            HQPanel(cornerRadius: 8, surface: Theme.darkSurface.opacity(0.85), border: Theme.darkBorder.opacity(0.7), lineWidth: 1) {
-                                HStack(spacing: 6) {
-                                    Image(systemName: "doc")
-                                    Text(file.fileName).lineLimit(1)
-                                    Button {
-                                        chatVM.removeAttachment(file)
-                                    } label: {
-                                        Image(systemName: "xmark.circle.fill")
-                                    }
-                                    .buttonStyle(.plain)
+                            // File pill styled as [filename]
+                            HStack(spacing: 6) {
+                                Text("[\(file.fileName)]")
+                                    .font(Theme.terminalFontSM)
+                                    .foregroundColor(Theme.neonCyan)
+                                    .lineLimit(1)
+                                Button {
+                                    chatVM.removeAttachment(file)
+                                } label: {
+                                    Image(systemName: "xmark.circle.fill")
+                                        .foregroundColor(Theme.textMuted)
                                 }
-                                .padding(.horizontal, 10)
-                                .padding(.vertical, 6)
+                                .buttonStyle(.plain)
                             }
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 6)
+                            .background(Theme.darkSurface.opacity(0.85))
+                            .overlay(RoundedRectangle(cornerRadius: 6).stroke(Theme.neonCyan.opacity(0.35), lineWidth: 1))
+                            .clipShape(RoundedRectangle(cornerRadius: 6))
                         }
                     }
                 }
             }
 
             HStack(alignment: .bottom, spacing: 8) {
-                // Scrollable multi-line composer with Enter-to-send / Shift+Enter for newline
-                HQPanel(cornerRadius: 8, surface: Theme.darkSurface.opacity(0.9), border: Theme.darkBorder.opacity(0.8), lineWidth: 1) {
+                // ">" prefix in neonCyan before the text input
+                Text(">")
+                    .font(.system(.body, design: .monospaced).weight(.bold))
+                    .foregroundColor(Theme.neonCyan)
+                    .padding(.bottom, 10)
+
+                HQPanel(cornerRadius: 8, surface: Theme.darkSurface.opacity(0.9), border: Theme.neonCyan.opacity(0.3), lineWidth: 1) {
                     ComposerTextView(
                         text: $chatVM.draftMessage,
-                        placeholder: "Message \(selectedAgentName())…  (Shift+Enter for new line)",
+                        placeholder: "message \(selectedAgentName().lowercased())…  (shift+enter for newline)",
                         onSend: { Task { await sendCurrentMessageWithSelectedTags() } },
                         isSending: chatVM.isSending
                     )
@@ -537,7 +595,6 @@ struct ChatView: View {
                 }
 
                 if chatVM.isSending {
-                    // Stop button — cancels the in-flight run
                     Button {
                         chatVM.stopCurrentRun()
                     } label: {
@@ -546,13 +603,12 @@ struct ChatView: View {
                     .buttonStyle(HQButtonStyle(variant: .danger))
                     .transition(reduceMotion ? .opacity : .scale.combined(with: .opacity))
                 } else {
-                    // Send button
                     Button {
                         Task { await sendCurrentMessageWithSelectedTags() }
                     } label: {
                         Image(systemName: "paperplane.fill")
                     }
-                    .buttonStyle(HQButtonStyle(variant: .primary))
+                    .buttonStyle(HQButtonStyle(variant: .glow))
                     .disabled(
                         chatVM.draftMessage.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
                         && chatVM.pendingAttachments.isEmpty
@@ -568,18 +624,18 @@ struct ChatView: View {
                     HStack(spacing: 6) {
                         Image(systemName: "paperclip")
                             .font(.caption)
-                            .foregroundColor(.white)
-                        Text("Add Files")
-                            .font(.caption)
-                            .foregroundColor(.white)
+                            .foregroundColor(Theme.neonCyan)
+                        Text("ATTACH")
+                            .font(Theme.terminalFontSM)
+                            .foregroundColor(Theme.textSecondary)
                     }
                 }
                 .buttonStyle(.plain)
                 .padding(.horizontal, 8)
                 .padding(.vertical, 6)
                 .background(Theme.darkSurface)
-                .overlay(RoundedRectangle(cornerRadius: 8).stroke(Theme.darkBorder, lineWidth: 1))
-                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: 6).stroke(Theme.darkBorder, lineWidth: 1))
+                .clipShape(RoundedRectangle(cornerRadius: 6))
 
                 if !chatVM.selectedConversationIsLockedToAgent {
                     modelPicker
@@ -603,25 +659,25 @@ struct ChatView: View {
                     HStack(spacing: 6) {
                         Image(systemName: "tag")
                             .font(.caption)
-                            .foregroundColor(.white)
-                        Text(selectedTags.isEmpty ? "Tags" : "Tags (\(selectedTags.count))")
-                            .font(.caption)
-                            .foregroundColor(.white)
+                            .foregroundColor(Theme.textMuted)
+                        Text(selectedTags.isEmpty ? "TAGS" : "TAGS(\(selectedTags.count))")
+                            .font(Theme.terminalFontSM)
+                            .foregroundColor(Theme.textSecondary)
                     }
                 }
                 .menuStyle(.borderlessButton)
                 .padding(.horizontal, 8)
                 .padding(.vertical, 6)
                 .background(Theme.darkSurface)
-                .overlay(RoundedRectangle(cornerRadius: 8).stroke(Theme.darkBorder, lineWidth: 1))
-                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: 6).stroke(Theme.darkBorder, lineWidth: 1))
+                .clipShape(RoundedRectangle(cornerRadius: 6))
 
                 HStack(spacing: 6) {
                     Image(systemName: "cpu")
                         .font(.caption)
                         .foregroundColor(Theme.textMuted)
                     Text(currentModelLabel())
-                        .font(.caption)
+                        .font(Theme.terminalFontSM)
                         .foregroundColor(Theme.textMuted)
                         .lineLimit(1)
                         .truncationMode(.tail)
@@ -629,15 +685,16 @@ struct ChatView: View {
                 .padding(.horizontal, 8)
                 .padding(.vertical, 6)
                 .background(Theme.darkSurface)
-                .overlay(RoundedRectangle(cornerRadius: 8).stroke(Theme.darkBorder, lineWidth: 1))
-                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: 6).stroke(Theme.darkBorder, lineWidth: 1))
+                .clipShape(RoundedRectangle(cornerRadius: 6))
 
                 HStack(spacing: 6) {
                     Toggle("", isOn: $chatVM.thinkingEnabled)
                         .toggleStyle(.switch)
+                        .tint(Theme.neonCyan)
                         .labelsHidden()
-                    Text("Thinking")
-                        .font(.subheadline)
+                    Text("THINK")
+                        .font(Theme.terminalFontSM)
                         .foregroundColor(Theme.textSecondary)
                         .fixedSize()
                 }
@@ -646,24 +703,25 @@ struct ChatView: View {
             }
         }
         .padding(12)
+        .background(Theme.darkBackground)
         .sheet(isPresented: $showAddTagSheet) {
             HQModalChrome(padding: 20) {
                 VStack(alignment: .leading, spacing: 12) {
-                    Text("Add Tag")
-                        .font(.headline)
-                        .foregroundColor(.white)
+                    Text("// ADD_TAG")
+                        .terminalLabel()
                     TextField("example: blocked", text: $newTagInput)
                         .textFieldStyle(.roundedBorder)
                     HStack {
                         Spacer()
-                        Button("Cancel") {
+                        Button("CANCEL") {
                             newTagInput = ""
                             showAddTagSheet = false
                         }
-                        Button("Add") {
+                        .buttonStyle(HQButtonStyle(variant: .secondary))
+                        Button("ADD") {
                             addTagFromInput()
                         }
-                        .buttonStyle(HQButtonStyle(variant: .primary))
+                        .buttonStyle(HQButtonStyle(variant: .glow))
                         .disabled(newTagInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                     }
                 }
@@ -673,26 +731,26 @@ struct ChatView: View {
         }
     }
 
-    // MARK: - Sidebar
+    // MARK: - Sidebar (// SESSIONS)
 
     private var sidebar: some View {
         VStack(spacing: 10) {
             HStack {
-                Text("Conversations")
-                    .font(.headline)
-                    .foregroundColor(.white)
+                Text("// SESSIONS")
+                    .terminalLabel()
                 Spacer()
                 Button {
                     chatVM.startNewChat(defaultAgentId: preferredJarvisId())
                 } label: {
-                    Label("New", systemImage: "plus")
+                    Label("NEW", systemImage: "plus")
                 }
-                .buttonStyle(HQButtonStyle(variant: .secondary))
+                .buttonStyle(HQButtonStyle(variant: .glow))
             }
 
             ScrollView {
                 LazyVStack(spacing: 6) {
                     ForEach(chatVM.conversations) { convo in
+                        let isActive = chatVM.selectedConversationId == convo.id
                         HStack(spacing: 6) {
                             Button {
                                 Task {
@@ -700,19 +758,43 @@ struct ChatView: View {
                                     await chatVM.loadConversation(sessionKey: convo.id)
                                 }
                             } label: {
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text(convo.title.isEmpty ? "Chat" : convo.title)
-                                        .font(.subheadline)
-                                        .foregroundColor(.white)
-                                        .lineLimit(2)
-                                    Text(convo.updatedAt.formatted(.dateTime.month().day().hour().minute()))
-                                        .font(.caption2)
-                                        .foregroundColor(Theme.textMuted)
+                                HStack(alignment: .top, spacing: 6) {
+                                    // Active indicator "▶"
+                                    if isActive {
+                                        Text("▶")
+                                            .font(Theme.terminalFontSM)
+                                            .foregroundColor(Theme.neonCyan)
+                                    } else {
+                                        Text(" ")
+                                            .font(Theme.terminalFontSM)
+                                    }
+
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text(convo.title.isEmpty ? "SESSION" : convo.title.uppercased())
+                                            .font(.system(.caption, design: .monospaced).weight(isActive ? .semibold : .regular))
+                                            .foregroundColor(isActive ? Theme.neonCyan : Theme.textSecondary)
+                                            .lineLimit(2)
+                                        Text(convo.updatedAt.formatted(.dateTime.month().day().hour().minute()))
+                                            .font(Theme.terminalFontSM)
+                                            .foregroundColor(Theme.textMuted)
+                                    }
+                                    .frame(maxWidth: .infinity, alignment: .leading)
                                 }
-                                .frame(maxWidth: .infinity, alignment: .leading)
                                 .padding(10)
-                                .background(chatVM.selectedConversationId == convo.id ? Theme.darkAccent : Theme.darkSurface.opacity(0.7))
-                                .cornerRadius(10)
+                                .background(isActive ? Theme.neonCyan.opacity(0.08) : Theme.darkSurface.opacity(0.7))
+                                .overlay(alignment: .leading) {
+                                    if isActive {
+                                        Rectangle()
+                                            .fill(Theme.neonCyan)
+                                            .frame(width: 2)
+                                            .padding(.vertical, 4)
+                                    }
+                                }
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 8)
+                                        .stroke(isActive ? Theme.neonCyan.opacity(0.5) : Theme.darkBorder.opacity(0.4), lineWidth: 1)
+                                )
+                                .clipShape(RoundedRectangle(cornerRadius: 8))
                             }
                             .buttonStyle(.plain)
 
@@ -779,11 +861,10 @@ struct ChatView: View {
             if let modelName = agent.modelName, !modelName.isEmpty { return modelName }
             if let model = agent.model, !model.isEmpty { return model }
         }
-        return "Agent Default"
+        return "AGENT_DEFAULT"
     }
 
     private func archiveConversationFromRow(_ conversationId: String) {
-        // Ensure action targets the row the user invoked, then archive that exact session.
         chatVM.selectedConversationId = conversationId
         chatVM.archiveConversation(conversationId)
     }
@@ -893,27 +974,49 @@ struct RoundedCornerShape: Shape {
     }
 }
 
-// MARK: - Thinking Dots
+// MARK: - Thinking Dots (cyberpunk blinking cursor + PROCESSING text)
 
-/// Three animated dots shown in the streaming bubble before the first token arrives.
+/// Animated blinking block cursor with "PROCESSING..." label.
+/// Preserves the original dot timer logic.
 struct ThinkingDotsView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var phase = 0
+    @State private var cursorVisible = true
 
     private let timer = Timer.publish(every: 0.45, on: .main, in: .common).autoconnect()
+    private let cursorTimer = Timer.publish(every: 0.5, on: .main, in: .common).autoconnect()
 
     var body: some View {
-        HStack(spacing: 5) {
-            ForEach(0..<3, id: \.self) { i in
-                Circle()
-                    .fill(Color.white.opacity((reduceMotion ? 1 : phase) == i ? 0.9 : 0.3))
-                    .frame(width: 7, height: 7)
-                    .animation(reduceMotion ? nil : .easeInOut(duration: 0.3), value: phase)
+        HStack(spacing: 4) {
+            // Blinking block cursor
+            Text(cursorVisible || reduceMotion ? "█" : " ")
+                .font(.system(.caption2, design: .monospaced).weight(.bold))
+                .foregroundColor(Theme.neonCyan)
+                .frame(width: 10)
+
+            Text("PROCESSING")
+                .font(Theme.terminalFontSM)
+                .foregroundColor(Theme.textMuted)
+
+            // Original dots logic alongside (hidden but preserving state)
+            HStack(spacing: 3) {
+                ForEach(0..<3, id: \.self) { i in
+                    Circle()
+                        .fill(Color.white.opacity((reduceMotion ? 1 : phase) == i ? 0.6 : 0.15))
+                        .frame(width: 4, height: 4)
+                        .animation(reduceMotion ? nil : .easeInOut(duration: 0.3), value: phase)
+                }
             }
         }
         .onReceive(timer) { _ in
             guard !reduceMotion else { return }
             phase = (phase + 1) % 3
+        }
+        .onReceive(cursorTimer) { _ in
+            guard !reduceMotion else { return }
+            withAnimation(.easeInOut(duration: 0.15)) {
+                cursorVisible.toggle()
+            }
         }
     }
 }

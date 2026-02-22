@@ -15,12 +15,73 @@ struct ContentView: View {
             } else if appViewModel.isLoading {
                 LoadingView()
             } else {
-                mainLayout
+                VStack(spacing: 0) {
+                    titleBar
+                    mainLayout
+                }
             }
         }
     }
 
-    // MARK: - Main Layout (replaces NavigationSplitView so we own the sidebar fully)
+    // MARK: - Global Title Bar
+
+    private var titleBar: some View {
+        HStack(spacing: 0) {
+            // Left: app identity
+            HStack(spacing: 6) {
+                Text("OPENCLAW")
+                    .font(.system(.subheadline, design: .monospaced, weight: .black))
+                    .foregroundColor(Theme.neonCyan)
+                Text("//")
+                    .font(.system(.subheadline, design: .monospaced, weight: .light))
+                    .foregroundColor(Theme.neonCyan.opacity(0.5))
+                Text("HQ")
+                    .font(.system(.subheadline, design: .monospaced, weight: .black))
+                    .foregroundColor(Theme.neonMagenta)
+            }
+            .glitchText(color: Theme.neonMagenta)
+            .padding(.leading, 16)
+
+            Spacer()
+
+            // Center: current tab
+            Text("[ \(appViewModel.selectedTab.rawValue.uppercased()) ]")
+                .font(Theme.terminalFont)
+                .foregroundColor(Theme.textMetadata)
+                .tracking(2)
+
+            Spacer()
+
+            // Right: live clock
+            TimelineView(.periodic(from: .now, by: 60)) { _ in
+                Text(currentTimeString)
+                    .font(Theme.terminalFontSM)
+                    .foregroundColor(Theme.textMuted)
+            }
+            .padding(.trailing, 16)
+        }
+        .frame(height: 32)
+        .background(
+            ZStack {
+                Theme.darkBackground.opacity(0.95)
+                Rectangle()
+                    .fill(Theme.neonCyan.opacity(0.06))
+            }
+        )
+        .overlay(alignment: .bottom) {
+            Rectangle()
+                .fill(Theme.neonCyan.opacity(0.3))
+                .frame(height: 1)
+        }
+    }
+
+    private var currentTimeString: String {
+        let f = DateFormatter()
+        f.dateFormat = "HH:mm // yyyy-MM-dd"
+        return f.string(from: Date())
+    }
+
+    // MARK: - Main Layout
 
     private var mainLayout: some View {
         GeometryReader { geo in
@@ -32,17 +93,14 @@ struct ContentView: View {
 
                 detailView
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .crtFlicker()
             }
-            .onAppear {
-                updateWindowLayoutFlags(for: geo.size.width)
-            }
+            .onAppear { updateWindowLayoutFlags(for: geo.size.width) }
             .onChange(of: geo.size.width) { _, newWidth in
                 updateWindowLayoutFlags(for: newWidth)
             }
             .onChange(of: appViewModel.selectedTab) { _, tab in
-                if tab != .chat {
-                    appViewModel.isMainSidebarCollapsed = false
-                }
+                if tab != .chat { appViewModel.isMainSidebarCollapsed = false }
             }
         }
     }
@@ -53,126 +111,210 @@ struct ContentView: View {
         VStack(spacing: 0) {
             sidebarHeader
 
-            Divider().background(Theme.darkBorder)
+            // Neon divider
+            Rectangle()
+                .fill(Theme.neonCyan.opacity(0.25))
+                .frame(height: 1)
 
             // Tab list
-            List(AppTab.allCases, id: \.self, selection: $appViewModel.selectedTab) { tab in
-                Label(tab.rawValue, systemImage: tab.icon)
-                    .font(.headline)
-                    .foregroundColor(appViewModel.selectedTab == tab ? .white : Theme.textSecondary)
-                    .padding(.vertical, 6)
-                    .listRowBackground(Theme.darkSurface.opacity(0.22))
+            ScrollView {
+                VStack(spacing: 2) {
+                    ForEach(AppTab.allCases, id: \.self) { tab in
+                        terminalTabRow(tab)
+                    }
+                }
+                .padding(.vertical, 8)
+                .padding(.horizontal, 8)
             }
-            .listStyle(.sidebar)
-            .scrollContentBackground(.hidden)
-            .background(Color.clear)
+
+            Spacer(minLength: 0)
 
             connectionStatus
         }
         .background(
             ZStack {
-                Theme.darkSurface.opacity(0.7)
+                Theme.darkSurface.opacity(0.85)
                 Rectangle()
                     .fill(.ultraThinMaterial)
-                    .opacity(0.12)
+                    .opacity(0.08)
             }
         )
+        .overlay(alignment: .trailing) {
+            // Right-edge neon separator
+            Rectangle()
+                .fill(Theme.neonCyan.opacity(0.3))
+                .frame(width: 1)
+        }
+    }
+
+    // MARK: - Terminal Tab Row
+
+    private func terminalTabRow(_ tab: AppTab) -> some View {
+        let isActive = appViewModel.selectedTab == tab
+
+        return Button {
+            appViewModel.selectedTab = tab
+        } label: {
+            HStack(spacing: 8) {
+                // Left active stripe
+                Rectangle()
+                    .fill(isActive ? Theme.neonCyan : Color.clear)
+                    .frame(width: 3)
+                    .animation(.easeOut(duration: 0.15), value: isActive)
+
+                Image(systemName: tab.icon)
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundColor(isActive ? Theme.neonCyan : Theme.textMuted)
+                    .frame(width: 16)
+
+                Text(isActive ? "▶ \(tab.rawValue.uppercased())" : tab.rawValue.uppercased())
+                    .font(Theme.terminalFontSM)
+                    .foregroundColor(isActive ? Theme.neonCyan : Theme.textMuted)
+                    .tracking(0.8)
+
+                Spacer()
+            }
+            .frame(height: 34)
+            .background(
+                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    .fill(isActive ? Theme.neonCyan.opacity(0.08) : Color.clear)
+            )
+            .shadow(color: isActive ? Theme.neonCyan.opacity(0.2) : .clear, radius: 6, x: 0, y: 0)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
     }
 
     // MARK: - Sidebar Header
 
     private var sidebarHeader: some View {
-        VStack(spacing: 4) {
-            Text("OPENCLAW_HQ")
-                .font(.system(.title3, design: .monospaced))
-                .fontWeight(.bold)
+        VStack(spacing: 3) {
+            Text("┌─ AGENT OS ─┐")
+                .font(Theme.terminalFontSM)
+                .foregroundColor(Theme.neonCyan.opacity(0.6))
+
+            Text("OPENCLAW HQ")
+                .font(.system(.subheadline, design: .monospaced, weight: .black))
                 .foregroundColor(Theme.neonCyan)
-            Text("LOFI CYBERNET OPS")
-                .font(.system(.caption2, design: .monospaced))
-                .foregroundColor(Theme.textMuted)
-            Text("Built by Andrew Portzer")
-                .font(.caption2)
-                .foregroundColor(Theme.textMuted.opacity(0.85))
+                .glitchText(color: Theme.neonMagenta)
+
+            Text("└─────────────┘")
+                .font(Theme.terminalFontSM)
+                .foregroundColor(Theme.neonCyan.opacity(0.6))
+
+            Text("// v1.0 · LOFI CYBERNET")
+                .font(Theme.terminalFontSM)
+                .foregroundColor(Theme.textMuted.opacity(0.7))
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 12)
-        .background(Theme.darkBackground)
+        .padding(.vertical, 14)
+        .background(Theme.darkBackground.opacity(0.8))
     }
 
     // MARK: - Connection Status Footer
 
     private var connectionStatus: some View {
-        VStack(spacing: 6) {
-            Divider().background(Theme.darkBorder)
-            HStack(spacing: 8) {
-                HQStatusPill(
-                    text: appViewModel.gatewayService.isConnected ? "Connected" : "Disconnected",
-                    color: appViewModel.gatewayService.isConnected ? Theme.statusOnline : Theme.statusOffline
-                )
-                Spacer()
-                SettingsLink {
-                    Image(systemName: "gear")
-                        .foregroundColor(Theme.textMuted)
-                }
-                .buttonStyle(.plain)
-            }
+        VStack(spacing: 0) {
+            Rectangle()
+                .fill(Theme.darkBorder.opacity(0.5))
+                .frame(height: 1)
 
-            if appViewModel.gatewayService.isConnected, let health = gatewayStatusVM.health {
-                HStack(spacing: 12) {
-                    Label("\(health.activeRuns)", systemImage: "bolt.fill")
-                        .font(.caption2)
-                        .foregroundColor(health.activeRuns > 0 ? Theme.statusBusy : Theme.textMuted)
-                    Label(health.uptimeString, systemImage: "clock")
-                        .font(.caption2)
-                        .foregroundColor(Theme.textMuted)
+            VStack(alignment: .leading, spacing: 6) {
+                // SYS status line
+                HStack(spacing: 6) {
+                    StatusIndicator(status: appViewModel.gatewayService.isConnected ? .online : .offline)
+                        .frame(width: 8, height: 8)
+                    Text(appViewModel.gatewayService.isConnected ? "SYS: ONLINE" : "SYS: OFFLINE")
+                        .font(Theme.terminalFontSM)
+                        .foregroundColor(appViewModel.gatewayService.isConnected ? Theme.statusOnline : Theme.statusOffline)
+                        .tracking(1)
                     Spacer()
+                    SettingsLink {
+                        Image(systemName: "gear")
+                            .font(.system(size: 10))
+                            .foregroundColor(Theme.textMuted)
+                    }
+                    .buttonStyle(.plain)
                 }
-                .onTapGesture { showHealthPopover.toggle() }
-                .popover(isPresented: $showHealthPopover) {
-                    healthPopoverContent(health)
+
+                // Gateway address
+                Text("GW: 127.0.0.1:18789")
+                    .font(Theme.terminalFontSM)
+                    .foregroundColor(Theme.textMuted.opacity(0.6))
+
+                // Health stats if connected
+                if appViewModel.gatewayService.isConnected, let health = gatewayStatusVM.health {
+                    HStack(spacing: 10) {
+                        Text("RUNS:\(health.activeRuns)")
+                            .font(Theme.terminalFontSM)
+                            .foregroundColor(health.activeRuns > 0 ? Theme.statusBusy : Theme.textMuted.opacity(0.6))
+                        Text("UP:\(health.uptimeString)")
+                            .font(Theme.terminalFontSM)
+                            .foregroundColor(Theme.textMuted.opacity(0.6))
+                    }
+                    .onTapGesture { showHealthPopover.toggle() }
+                    .popover(isPresented: $showHealthPopover) {
+                        healthPopoverContent(health)
+                    }
                 }
             }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 8)
     }
 
     private func healthPopoverContent(_ health: GatewayHealth) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Gateway Status")
-                .font(.headline)
-                .foregroundColor(.white)
+        VStack(alignment: .leading, spacing: 10) {
+            Text("// GATEWAY_STATUS")
+                .font(Theme.subheaderFont)
+                .foregroundColor(Theme.neonCyan)
 
-            Grid(alignment: .leading, horizontalSpacing: 16, verticalSpacing: 8) {
+            Rectangle()
+                .fill(Theme.neonCyan.opacity(0.2))
+                .frame(height: 1)
+
+            Grid(alignment: .leading, horizontalSpacing: 16, verticalSpacing: 6) {
                 GridRow {
-                    Text("Status").foregroundColor(Theme.textMuted).font(.caption)
-                    Text(health.isHealthy ? "Healthy" : "Degraded")
+                    Text("STATUS").terminalLabel()
+                    Text(health.isHealthy ? "HEALTHY" : "DEGRADED")
+                        .font(Theme.terminalFont)
                         .foregroundColor(health.isHealthy ? Theme.statusOnline : Theme.statusOffline)
-                        .font(.caption)
                 }
                 GridRow {
-                    Text("Uptime").foregroundColor(Theme.textMuted).font(.caption)
-                    Text(health.uptimeString).foregroundColor(.white).font(.caption)
+                    Text("UPTIME").terminalLabel()
+                    Text(health.uptimeString)
+                        .font(Theme.terminalFont)
+                        .foregroundColor(Theme.textPrimary)
                 }
                 GridRow {
-                    Text("Active Runs").foregroundColor(Theme.textMuted).font(.caption)
-                    Text("\(health.activeRuns)").foregroundColor(.white).font(.caption)
+                    Text("ACTIVE_RUNS").terminalLabel()
+                    Text("\(health.activeRuns)")
+                        .font(Theme.terminalFont)
+                        .foregroundColor(Theme.textPrimary)
                 }
                 GridRow {
-                    Text("Devices").foregroundColor(Theme.textMuted).font(.caption)
-                    Text("\(health.connectedDevices)").foregroundColor(.white).font(.caption)
+                    Text("DEVICES").terminalLabel()
+                    Text("\(health.connectedDevices)")
+                        .font(Theme.terminalFont)
+                        .foregroundColor(Theme.textPrimary)
                 }
                 if let model = health.model {
                     GridRow {
-                        Text("Model").foregroundColor(Theme.textMuted).font(.caption)
-                        Text(model).foregroundColor(.white).font(.caption)
+                        Text("MODEL").terminalLabel()
+                        Text(model)
+                            .font(Theme.terminalFont)
+                            .foregroundColor(Theme.textPrimary)
                     }
                 }
             }
         }
         .padding(16)
-        .frame(width: 250)
+        .frame(width: 260)
         .background(Theme.darkSurface)
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(Theme.neonCyan.opacity(0.3), lineWidth: 1)
+        )
     }
 
     // MARK: - Detail View
@@ -213,7 +355,6 @@ struct ContentView: View {
             selectedTab: appViewModel.selectedTab,
             currentSidebarCollapsed: appViewModel.isMainSidebarCollapsed
         )
-
         if appViewModel.isCompactWindow != state.isCompactWindow {
             appViewModel.isCompactWindow = state.isCompactWindow
         }
@@ -234,7 +375,6 @@ enum ContentLayoutPolicy {
     static func state(for width: CGFloat, selectedTab: AppTab, currentSidebarCollapsed: Bool) -> WindowLayoutState {
         let isCompactWindow = width < compactThreshold
         let keepSidebarCollapsed = isCompactWindow && selectedTab == .chat
-
         return WindowLayoutState(
             isCompactWindow: isCompactWindow,
             isMainSidebarCollapsed: keepSidebarCollapsed ? currentSidebarCollapsed : false
@@ -249,16 +389,28 @@ struct LoadingView: View {
 
     var body: some View {
         VStack(spacing: 20) {
+            // Pulsing terminal cursor
+            Text("█")
+                .font(.system(size: 48, design: .monospaced))
+                .foregroundColor(Theme.neonCyan)
+
+            VStack(spacing: 8) {
+                Text("INITIALIZING OPENCLAW HQ...")
+                    .font(Theme.subheaderFont)
+                    .foregroundColor(Theme.neonCyan)
+
+                Text("ESTABLISHING NEURAL LINK")
+                    .font(Theme.terminalFont)
+                    .foregroundColor(Theme.textMuted)
+
+                Text(settingsService.settings.gatewayURL)
+                    .font(Theme.terminalFontSM)
+                    .foregroundColor(Theme.textMetadata)
+            }
+
             ProgressView()
-                .scaleEffect(1.5)
-                .tint(Theme.jarvisBlue)
-            Text("Connecting to OpenClaw Gateway...")
-                .font(.headline)
-                .foregroundColor(Theme.textSecondary)
-            Text(settingsService.settings.gatewayURL)
-                .font(.caption)
-                .foregroundColor(Theme.textMuted)
-                .monospaced()
+                .scaleEffect(0.8)
+                .tint(Theme.neonCyan)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Theme.darkBackground)

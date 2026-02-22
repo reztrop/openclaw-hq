@@ -11,21 +11,25 @@ struct TokenChart: View {
                 y: .value("Tokens", usage.totalTokens)
             )
             .foregroundStyle(Theme.agentColor(for: usage.agentName))
-            .cornerRadius(6)
+            .cornerRadius(4)
         }
         .chartXAxis {
             AxisMarks { _ in
                 AxisValueLabel()
-                    .foregroundStyle(Theme.textSecondary)
+                    .font(.system(.caption2, design: .monospaced))
+                    .foregroundStyle(Theme.textMuted)
             }
         }
         .chartYAxis {
             AxisMarks { _ in
                 AxisGridLine()
-                    .foregroundStyle(Theme.darkBorder.opacity(0.7))
+                    .foregroundStyle(Theme.gridLineColor)
                 AxisValueLabel()
-                    .foregroundStyle(Theme.textSecondary)
+                    .font(.system(.caption2, design: .monospaced))
+                    .foregroundStyle(Theme.textMuted)
             }
         }
+        // Glow shadow overlay on bars using chart background
+        .shadow(color: Theme.neonCyan.opacity(0.12), radius: 8, x: 0, y: 0)
     }
 }

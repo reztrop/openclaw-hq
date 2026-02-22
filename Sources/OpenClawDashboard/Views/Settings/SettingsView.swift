@@ -70,8 +70,22 @@ struct SettingsView: View {
         let content = ScrollView {
             VStack(alignment: .leading, spacing: 24) {
 
-                // MARK: API Connections
-                settingsSection("API Connections", icon: "key.fill") {
+                // "[ SYS_CONFIG ]" header
+                HStack(spacing: 4) {
+                    Text("[")
+                        .font(.system(.title2, design: .monospaced).weight(.bold))
+                        .foregroundColor(Theme.neonCyan.opacity(0.6))
+                    Text("SYS_CONFIG")
+                        .font(.system(.title2, design: .monospaced).weight(.bold))
+                        .foregroundColor(Theme.neonCyan)
+                        .glitchText()
+                    Text("]")
+                        .font(.system(.title2, design: .monospaced).weight(.bold))
+                        .foregroundColor(Theme.neonCyan.opacity(0.6))
+                }
+
+                // MARK: // API_CONNECTIONS
+                settingsSection("API_CONNECTIONS", icon: "key.fill") {
                     if detectedProviders.isEmpty {
                         EmptyStateView(
                             icon: "key",
@@ -90,59 +104,96 @@ struct SettingsView: View {
                             ForEach(detectedProviders, id: \.self) { pid in
                                 providerRow(pid)
                                 if pid != detectedProviders.last {
-                                    Divider().background(Theme.darkBorder).padding(.leading, 40)
+                                    Rectangle()
+                                        .fill(Theme.darkBorder.opacity(0.4))
+                                        .frame(height: 1)
+                                        .padding(.leading, 40)
                                 }
                             }
                         }
                         .background(Theme.darkSurface)
-                        .cornerRadius(10)
+                        .overlay(RoundedRectangle(cornerRadius: 10).stroke(Theme.darkBorder, lineWidth: 1))
+                        .clipShape(RoundedRectangle(cornerRadius: 10))
                     }
                     Text("Only models from enabled providers will appear in the Chat model picker.")
-                        .font(.caption)
+                        .font(Theme.terminalFontSM)
                         .foregroundColor(Theme.textMuted)
                 }
 
-                // MARK: Gateway Connection
-                settingsSection("Gateway Connection", icon: "antenna.radiowaves.left.and.right") {
-                    VStack(spacing: 10) {
-                        labeledField("Host") {
+                // MARK: // GATEWAY
+                settingsSection("GATEWAY", icon: "antenna.radiowaves.left.and.right") {
+                    VStack(spacing: 12) {
+                        labeledField("HOST") {
                             settingsField("127.0.0.1", text: $host, field: .host)
                         }
-                        labeledField("Port") {
+                        labeledField("PORT") {
                             settingsField("18789", text: $port, field: .port)
                         }
-                        labeledField("Auth Token") {
+                        labeledField("AUTH_TOKEN") {
                             settingsField("token", text: $token, field: .token, isSecure: true)
                         }
                         HStack(spacing: 10) {
-                            Button("Test Connection") { testConnection() }
-                                .disabled(isTesting)
-                            if isTesting { ProgressView().scaleEffect(0.7) }
+                            Button {
+                                testConnection()
+                            } label: {
+                                HStack(spacing: 6) {
+                                    if isTesting {
+                                        ProgressView().scaleEffect(0.7)
+                                        Text("PINGING...")
+                                    } else {
+                                        Image(systemName: "antenna.radiowaves.left.and.right")
+                                        Text("TEST_CONNECTION")
+                                    }
+                                }
+                                .font(Theme.terminalFont)
+                            }
+                            .buttonStyle(HQButtonStyle(variant: .secondary))
+                            .disabled(isTesting)
+
                             if let result = testResult {
-                                Text(result)
-                                    .font(.caption)
-                                    .foregroundColor(result.contains("Success") ? .green : .red)
+                                // Terminal output style: "$ ping gateway... OK" or "ERR: ..."
+                                let isSuccess = result.contains("Success")
+                                HStack(spacing: 6) {
+                                    Text("$")
+                                        .font(Theme.terminalFontSM)
+                                        .foregroundColor(isSuccess ? Theme.statusOnline : Theme.statusOffline)
+                                    Text(isSuccess ? "ping gateway... OK" : "ERR: \(result)")
+                                        .font(Theme.terminalFontSM)
+                                        .foregroundColor(isSuccess ? Theme.statusOnline : Theme.statusOffline)
+                                }
                             }
                             Spacer()
                         }
                     }
                     .padding(14)
                     .background(Theme.darkSurface)
-                    .cornerRadius(10)
+                    .overlay(RoundedRectangle(cornerRadius: 10).stroke(Theme.darkBorder, lineWidth: 1))
+                    .clipShape(RoundedRectangle(cornerRadius: 10))
                 }
 
-                // MARK: Display
-                settingsSection("Display", icon: "paintbrush") {
+                // MARK: // DISPLAY
+                settingsSection("DISPLAY", icon: "paintbrush") {
                     VStack(spacing: 0) {
-                        Toggle("Enable Notifications", isOn: $enableNotifications)
+                        Toggle("ENABLE_NOTIFICATIONS", isOn: $enableNotifications)
+                            .font(Theme.terminalFont)
+                            .foregroundColor(Theme.textSecondary)
+                            .tint(Theme.neonCyan)
                             .padding(14)
-                        Divider().background(Theme.darkBorder)
-                        Toggle("Show Offline Agents", isOn: $showOfflineAgents)
+                        Rectangle()
+                            .fill(Theme.darkBorder.opacity(0.4))
+                            .frame(height: 1)
+                        Toggle("SHOW_OFFLINE_AGENTS", isOn: $showOfflineAgents)
+                            .font(Theme.terminalFont)
+                            .foregroundColor(Theme.textSecondary)
+                            .tint(Theme.neonCyan)
                             .padding(14)
-                        Divider().background(Theme.darkBorder)
+                        Rectangle()
+                            .fill(Theme.darkBorder.opacity(0.4))
+                            .frame(height: 1)
                         HStack {
-                            Text("Auto-Refresh Interval")
-                                .foregroundColor(.white)
+                            Text("AUTO_REFRESH_INTERVAL")
+                                .font(Theme.terminalFont)
+                                .foregroundColor(Theme.textSecondary)
                             Spacer()
                             Picker("", selection: $refreshInterval) {
                                 Text("15 sec").tag(15)
@@ -156,29 +207,33 @@ struct SettingsView: View {
                         .padding(14)
                     }
                     .background(Theme.darkSurface)
-                    .cornerRadius(10)
+                    .overlay(RoundedRectangle(cornerRadius: 10).stroke(Theme.darkBorder, lineWidth: 1))
+                    .clipShape(RoundedRectangle(cornerRadius: 10))
                 }
 
                 // MARK: Save / Reset
                 HStack(spacing: 12) {
-                    Button("Reset to Defaults") {
+                    Button("RESET_DEFAULTS") {
                         settingsService.resetToDefaults()
                         loadFromSettings()
                         detectedProviders = readAuthProviders()
                     }
-                    .foregroundColor(Theme.textMuted)
+                    .buttonStyle(HQButtonStyle(variant: .danger))
 
                     Spacer()
 
                     if savedConfirmation {
-                        Text("Saved")
-                            .font(.callout)
-                            .foregroundColor(.green)
-                            .transition(.opacity)
+                        HStack(spacing: 6) {
+                            Image(systemName: "checkmark.circle.fill")
+                            Text("SAVED")
+                        }
+                        .font(Theme.terminalFont)
+                        .foregroundColor(Theme.statusOnline)
+                        .transition(.opacity)
                     }
 
-                    Button("Save") { saveSettings() }
-                        .buttonStyle(.borderedProminent)
+                    Button("WRITE_CONFIG") { saveSettings() }
+                        .buttonStyle(HQButtonStyle(variant: .glow))
                         .keyboardShortcut(.return, modifiers: .command)
                 }
             }
@@ -207,13 +262,14 @@ struct SettingsView: View {
         let enabled = isEnabled(pid)
         return HStack(spacing: 12) {
             Image(systemName: providerIcon(pid))
-                .foregroundColor(enabled ? Theme.jarvisBlue : Theme.textMuted)
+                .foregroundColor(enabled ? Theme.neonCyan : Theme.textMuted)
                 .frame(width: 20)
             VStack(alignment: .leading, spacing: 2) {
                 Text(providerDisplayName(pid))
-                    .foregroundColor(enabled ? .white : Theme.textMuted)
+                    .font(Theme.terminalFont)
+                    .foregroundColor(enabled ? Theme.textPrimary : Theme.textMuted)
                 Text(pid)
-                    .font(.caption2)
+                    .font(Theme.terminalFontSM)
                     .foregroundColor(Theme.textMuted)
             }
             Spacer()
@@ -223,6 +279,7 @@ struct SettingsView: View {
             ))
             .toggleStyle(.switch)
             .labelsHidden()
+            .tint(Theme.neonCyan)
         }
         .padding(14)
         .contentShape(Rectangle())
@@ -236,9 +293,12 @@ struct SettingsView: View {
         @ViewBuilder content: () -> Content
     ) -> some View {
         VStack(alignment: .leading, spacing: 10) {
-            Label(title, systemImage: icon)
-                .font(.headline)
-                .foregroundColor(.white)
+            HStack(spacing: 8) {
+                Image(systemName: icon)
+                    .foregroundColor(Theme.neonCyan.opacity(0.7))
+                Text("// \(title)")
+                    .terminalLabel()
+            }
             content()
         }
     }
@@ -246,8 +306,10 @@ struct SettingsView: View {
     private func labeledField<Content: View>(_ label: String, @ViewBuilder content: () -> Content) -> some View {
         HStack {
             Text(label)
-                .foregroundColor(Theme.textSecondary)
-                .frame(width: 80, alignment: .leading)
+                .font(Theme.terminalFontSM)
+                .foregroundColor(Theme.textMuted)
+                .tracking(1)
+                .frame(width: 100, alignment: .leading)
             content()
         }
     }
@@ -255,7 +317,7 @@ struct SettingsView: View {
     @ViewBuilder
     private func settingsField(_ placeholder: String, text: Binding<String>, field: SettingsField, isSecure: Bool = false) -> some View {
         let isFocused = focusedField == field
-        let isHovered = hoveredField == field
+        let isHovrd = hoveredField == field
 
         Group {
             if isSecure {
@@ -265,38 +327,15 @@ struct SettingsView: View {
             }
         }
         .textFieldStyle(.plain)
-        .foregroundColor(.white)
-        .padding(.horizontal, 10)
-        .padding(.vertical, 7)
-        .background(fieldChrome(isFocused: isFocused, isHovered: isHovered))
+        .font(Theme.terminalFont)
+        .foregroundColor(Theme.textPrimary)
+        .cyberpunkInput(isFocused: isFocused)
         .focused($focusedField, equals: field)
         .onHover { hovering in
             updateHoveredField(field, hovering: hovering)
         }
         .animation(reduceMotion ? nil : .easeOut(duration: 0.12), value: isFocused)
-        .animation(reduceMotion ? nil : .easeOut(duration: 0.12), value: isHovered)
-    }
-
-    private func fieldChrome(isFocused: Bool, isHovered: Bool) -> some View {
-        let borderColor: Color
-        if isFocused {
-            borderColor = Theme.jarvisBlue
-        } else if isHovered {
-            borderColor = Theme.jarvisBlue.opacity(0.65)
-        } else {
-            borderColor = Theme.darkBorder.opacity(0.9)
-        }
-
-        let surface = Theme.darkAccent.opacity(isFocused ? 0.9 : 0.75)
-        let glow = isFocused ? Theme.jarvisBlue.opacity(0.25) : Color.clear
-
-        return RoundedRectangle(cornerRadius: 8, style: .continuous)
-            .fill(surface)
-            .overlay(
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .stroke(borderColor, lineWidth: 1)
-            )
-            .shadow(color: glow, radius: isFocused ? 8 : 0)
+        .animation(reduceMotion ? nil : .easeOut(duration: 0.12), value: isHovrd)
     }
 
     private func updateHoveredField(_ field: SettingsField, hovering: Bool) {
