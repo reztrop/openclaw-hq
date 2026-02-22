@@ -23,6 +23,7 @@ struct ChatConversation: Identifiable, Hashable {
     var title: String
     var agentId: String
     var updatedAt: Date
+    var isPinned: Bool = false
 
     var isDraft: Bool { id.hasPrefix("draft:") }
 }
@@ -163,14 +164,20 @@ class ChatViewModel: ObservableObject {
                 let fallbackTitle = session.label ?? "Chat"
                 let localTitle = localMap[session.key]?.customTitle?.trimmingCharacters(in: .whitespacesAndNewlines)
                 let title = (localTitle?.isEmpty == false) ? (localTitle ?? fallbackTitle) : fallbackTitle
+                let pinned = localMap[session.key]?.isPinned ?? false
                 return ChatConversation(
                     id: session.key,
                     title: title,
                     agentId: agentId,
-                    updatedAt: session.updatedAt ?? Date()
+                    updatedAt: session.updatedAt ?? Date(),
+                    isPinned: pinned
                 )
             }
-            conversations = mapped.sorted { $0.updatedAt > $1.updatedAt }
+            // Pinned conversations float to the top, then sorted by most recent
+            conversations = mapped.sorted {
+                if $0.isPinned != $1.isPinned { return $0.isPinned }
+                return $0.updatedAt > $1.updatedAt
+            }
 
             if let selected = selectedConversationId,
                !selected.hasPrefix("draft:"),
@@ -441,20 +448,64 @@ class ChatViewModel: ObservableObject {
 
     func archiveConversation(_ sessionKey: String) {
         guard !sessionKey.hasPrefix("draft:") else {
-            conversations.removeAll { $0.id == sessionKey }
-            if selectedConversationId == sessionKey {
-                selectedConversationId = conversations.first?.id
-                messages = []
-            }
+            removeConversationFromList(sessionKey)
             return
         }
-
         saveChatConfig(sessionKey: sessionKey) { config in
             config.isArchived = true
         }
+        removeConversationFromList(sessionKey)
+    }
 
+    func deleteConversation(_ sessionKey: String) {
+        // Remove from local config entirely (not just archived)
+        settingsService.update { settings in
+            settings.localChats.removeAll { $0.id == sessionKey }
+        }
+        removeConversationFromList(sessionKey)
+    }
+
+    func clearAllConversations() {
+        // Wipe all local chat configs and clear in-memory list
+        settingsService.update { settings in
+            settings.localChats = []
+        }
+        conversations.removeAll { !$0.isDraft }
+        if let selected = selectedConversationId, !selected.hasPrefix("draft:") {
+            selectedConversationId = conversations.first?.id
+            messages = []
+        }
+    }
+
+    func pinConversation(_ sessionKey: String, pinned: Bool) {
+        if let idx = conversations.firstIndex(where: { $0.id == sessionKey }) {
+            conversations[idx].isPinned = pinned
+        }
+        saveChatConfig(sessionKey: sessionKey) { config in
+            config.isPinned = pinned
+        }
+        // Re-sort: pinned float to top
+        conversations = conversations.sorted {
+            if $0.isPinned != $1.isPinned { return $0.isPinned }
+            return $0.updatedAt > $1.updatedAt
+        }
+    }
+
+    func renameConversation(_ sessionKey: String, title: String) {
+        let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        if let idx = conversations.firstIndex(where: { $0.id == sessionKey }) {
+            conversations[idx].title = trimmed
+        }
+        saveChatConfig(sessionKey: sessionKey) { config in
+            config.customTitle = trimmed
+        }
+    }
+
+    // MARK: - Private helpers
+
+    private func removeConversationFromList(_ sessionKey: String) {
         conversations.removeAll { $0.id == sessionKey }
-
         if selectedConversationId == sessionKey {
             selectedConversationId = conversations.first?.id
             if let first = selectedConversationId {

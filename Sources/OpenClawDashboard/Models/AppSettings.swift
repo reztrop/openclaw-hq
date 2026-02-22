@@ -59,6 +59,7 @@ struct LocalChatConversationConfig: Codable, Identifiable {
     var id: String            // sessionKey
     var customTitle: String? = nil
     var isArchived: Bool = false
+    var isPinned: Bool = false
 }
 
 struct AppSettings: Codable {

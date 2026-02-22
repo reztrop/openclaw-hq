@@ -16,8 +16,15 @@ class NotificationService {
     }
 
     func requestPermission() {
-        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { granted, error in
-            if let error = error {
+        // Dispatch off the init path — UNUserNotificationCenter.current() must not
+        // be called synchronously during @MainActor initialization.
+        Task.detached(priority: .background) {
+            do {
+                let granted = try await UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound])
+                if !granted {
+                    print("[Notifications] Permission not granted")
+                }
+            } catch {
                 print("[Notifications] Permission error: \(error)")
             }
         }
@@ -77,8 +84,10 @@ class NotificationService {
             trigger: nil
         )
 
-        UNUserNotificationCenter.current().add(request) { error in
-            if let error = error {
+        Task.detached(priority: .background) {
+            do {
+                try await UNUserNotificationCenter.current().add(request)
+            } catch {
                 print("[Notifications] Failed to send: \(error)")
             }
         }

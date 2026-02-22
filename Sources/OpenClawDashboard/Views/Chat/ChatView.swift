@@ -115,6 +115,12 @@ struct ChatView: View {
     @State private var newTagInput: String = ""
     @State private var availableTags: [String] = ["[project]", "[changes-requested]", "[final-approve]"]
     @State private var selectedTags: Set<String> = []
+    @State private var showRenameSheet = false
+    @State private var renameTargetId: String = ""
+    @State private var renameInput: String = ""
+    @State private var showClearAllConfirm = false
+    @State private var showDeleteConfirm = false
+    @State private var deleteTargetId: String = ""
 
     init(chatViewModel: ChatViewModel) {
         _chatVM = StateObject(wrappedValue: chatViewModel)
@@ -708,6 +714,28 @@ struct ChatView: View {
                 Text("// SESSIONS")
                     .terminalLabel()
                 Spacer()
+
+                // Clear All button
+                if !chatVM.conversations.filter({ !$0.isDraft }).isEmpty {
+                    Button {
+                        showClearAllConfirm = true
+                    } label: {
+                        Image(systemName: "trash")
+                            .font(.system(size: 10, weight: .semibold))
+                            .foregroundColor(Theme.textMuted)
+                    }
+                    .buttonStyle(.plain)
+                    .help("Clear All Conversations")
+                    .confirmationDialog("Clear all conversations?", isPresented: $showClearAllConfirm, titleVisibility: .visible) {
+                        Button("Clear All", role: .destructive) {
+                            chatVM.clearAllConversations()
+                        }
+                        Button("Cancel", role: .cancel) {}
+                    } message: {
+                        Text("This removes all conversations from the list. Session history on the gateway is not deleted.")
+                    }
+                }
+
                 Button {
                     chatVM.startNewChat(defaultAgentId: preferredJarvisId())
                 } label: {
@@ -728,7 +756,7 @@ struct ChatView: View {
                                 }
                             } label: {
                                 HStack(alignment: .top, spacing: 6) {
-                                    // Active indicator "▶"
+                                    // Active indicator
                                     if isActive {
                                         Text("▶")
                                             .font(Theme.terminalFontSM)
@@ -740,9 +768,16 @@ struct ChatView: View {
 
                                     VStack(alignment: .leading, spacing: 2) {
                                         let rowAgent = agentsVM.agents.first { $0.id == convo.agentId }
-                                        Text("\(rowAgent?.emoji ?? "🤖") \((rowAgent?.name ?? "UNKNOWN").uppercased())")
-                                            .font(Theme.terminalFontSM)
-                                            .foregroundColor(isActive ? Theme.neonMagenta : Theme.textMuted)
+                                        HStack(spacing: 4) {
+                                            Text("\(rowAgent?.emoji ?? "🤖") \((rowAgent?.name ?? "UNKNOWN").uppercased())")
+                                                .font(Theme.terminalFontSM)
+                                                .foregroundColor(isActive ? Theme.neonMagenta : Theme.textMuted)
+                                            if convo.isPinned {
+                                                Image(systemName: "pin.fill")
+                                                    .font(.system(size: 8, weight: .semibold))
+                                                    .foregroundColor(Theme.neonMagenta.opacity(0.7))
+                                            }
+                                        }
                                         Text(convo.title.isEmpty ? "SESSION" : convo.title.uppercased())
                                             .font(.system(.caption, design: .monospaced).weight(isActive ? .semibold : .regular))
                                             .foregroundColor(isActive ? Theme.neonCyan : Theme.textSecondary)
@@ -771,11 +806,43 @@ struct ChatView: View {
                             }
                             .buttonStyle(.plain)
 
+                            // Context menu
                             Menu {
-                                Button(role: .destructive) {
-                                    archiveConversationFromRow(convo.id)
+                                // Pin / Unpin
+                                Button {
+                                    chatVM.pinConversation(convo.id, pinned: !convo.isPinned)
                                 } label: {
-                                    Label("Archive Chat", systemImage: "archivebox")
+                                    Label(convo.isPinned ? "Unpin" : "Pin", systemImage: convo.isPinned ? "pin.slash" : "pin")
+                                }
+
+                                // Rename (only for non-drafts)
+                                if !convo.isDraft {
+                                    Button {
+                                        renameTargetId = convo.id
+                                        renameInput = convo.title
+                                        showRenameSheet = true
+                                    } label: {
+                                        Label("Rename", systemImage: "pencil")
+                                    }
+                                }
+
+                                Divider()
+
+                                // Archive
+                                if !convo.isDraft {
+                                    Button {
+                                        chatVM.archiveConversation(convo.id)
+                                    } label: {
+                                        Label("Archive", systemImage: "archivebox")
+                                    }
+                                }
+
+                                // Delete
+                                Button(role: .destructive) {
+                                    deleteTargetId = convo.id
+                                    showDeleteConfirm = true
+                                } label: {
+                                    Label("Delete", systemImage: "trash")
                                 }
                             } label: {
                                 Image(systemName: "ellipsis.circle")
@@ -789,6 +856,51 @@ struct ChatView: View {
             }
         }
         .padding(12)
+        // Rename sheet
+        .sheet(isPresented: $showRenameSheet) {
+            HQModalChrome(padding: 20) {
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("// RENAME SESSION")
+                        .terminalLabel()
+                    TextField("New name", text: $renameInput)
+                        .textFieldStyle(.roundedBorder)
+                        .onSubmit {
+                            commitRename()
+                        }
+                    HStack {
+                        Spacer()
+                        Button("CANCEL") {
+                            showRenameSheet = false
+                        }
+                        .buttonStyle(HQButtonStyle(variant: .secondary))
+                        Button("RENAME") {
+                            commitRename()
+                        }
+                        .buttonStyle(HQButtonStyle(variant: .glow))
+                        .disabled(renameInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    }
+                }
+                .padding(16)
+                .frame(width: 360)
+            }
+        }
+        // Delete confirmation
+        .confirmationDialog("Delete this conversation?", isPresented: $showDeleteConfirm, titleVisibility: .visible) {
+            Button("Delete", role: .destructive) {
+                chatVM.deleteConversation(deleteTargetId)
+                deleteTargetId = ""
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Removes it from the list. Gateway session history is not deleted.")
+        }
+    }
+
+    private func commitRename() {
+        chatVM.renameConversation(renameTargetId, title: renameInput)
+        showRenameSheet = false
+        renameTargetId = ""
+        renameInput = ""
     }
 
     // MARK: - Helpers
