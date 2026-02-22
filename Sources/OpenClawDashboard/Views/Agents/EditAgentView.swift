@@ -285,7 +285,7 @@ struct EditAgentView: View {
                     .padding(24)
                 }
             }
-            .frame(minWidth: 820, minHeight: 780)
+            .frame(minWidth: 860, minHeight: 820)
         }
         .preferredColorScheme(.dark)
     }

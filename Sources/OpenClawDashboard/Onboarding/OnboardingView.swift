@@ -308,6 +308,33 @@ struct ConnectionStep: View {
                     remoteModeSection
                 }
 
+                // ── Required step callout ──────────────────────────────────
+                NeonBorderPanel(
+                    color: vm.testStatus.isSuccess ? Theme.statusOnline : Theme.glitchAmber,
+                    cornerRadius: 8,
+                    surface: vm.testStatus.isSuccess
+                        ? Theme.statusOnline.opacity(0.06)
+                        : Theme.glitchAmber.opacity(0.06),
+                    lineWidth: 1
+                ) {
+                    HStack(spacing: 10) {
+                        Image(systemName: vm.testStatus.isSuccess
+                              ? "checkmark.circle.fill"
+                              : "exclamationmark.triangle.fill")
+                            .foregroundColor(vm.testStatus.isSuccess ? Theme.statusOnline : Theme.glitchAmber)
+                        Text(vm.testStatus.isSuccess
+                             ? "Connection verified — you may continue."
+                             : "You must test your connection before continuing. The CONTINUE button is disabled until a successful test passes.")
+                            .font(Theme.terminalFontSM)
+                            .foregroundColor(vm.testStatus.isSuccess
+                                             ? Theme.statusOnline
+                                             : Theme.glitchAmber.opacity(0.9))
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 10)
+                }
+
                 testConnectionSection
 
                 Spacer(minLength: 16)
